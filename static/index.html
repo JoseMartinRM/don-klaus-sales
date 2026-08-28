@@ -1,0 +1,844 @@
+<!DOCTYPE html>
+<html lang="es" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>InstaFlow Sales AI - Automatización de Instagram (Reemplazo ManyChat)</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        ig: {
+                            pink: '#e1306c',
+                            purple: '#833ab4',
+                            orange: '#fd1d1d',
+                            yellow: '#fcb045'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <link rel="stylesheet" href="/static/styles.css">
+    <!-- App Logic Loaded FIRST -->
+    <script src="/static/app.js"></script>
+    <!-- Alpine.js Core -->
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.13.5/dist/cdn.min.js"></script>
+</head>
+<body class="min-h-screen bg-[#0b0f19] text-gray-100 flex flex-col antialiased selection:bg-pink-500 selection:text-white" x-data="instaFlowApp()">
+
+    <!-- Toast Notification -->
+    <div x-show="toast.show" 
+         x-transition
+         class="fixed bottom-6 right-6 z-50 px-5 py-3.5 rounded-2xl shadow-2xl flex items-center gap-3 border"
+         :class="toast.type === 'error' ? 'bg-red-950/90 border-red-500/50 text-red-200' : toast.type === 'warning' ? 'bg-amber-950/90 border-amber-500/50 text-amber-200' : 'bg-emerald-950/90 border-emerald-500/50 text-emerald-200'"
+         style="display: none;">
+        <span class="text-base" x-text="toast.type === 'error' ? '❌' : toast.type === 'warning' ? '⚠️' : '✅'"></span>
+        <span class="text-sm font-medium" x-text="toast.message"></span>
+    </div>
+
+    <!-- Header Navigation -->
+    <header class="border-b border-gray-800/80 bg-gray-950/70 backdrop-blur-xl sticky top-0 z-40">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
+            <!-- Brand Logo -->
+            <div class="flex items-center gap-3.5">
+                <div class="w-11 h-11 rounded-2xl gradient-bg flex items-center justify-center shadow-lg shadow-pink-500/20 text-xl font-bold text-white">
+                    📸
+                </div>
+                <div>
+                    <div class="flex items-center gap-2">
+                        <span class="font-extrabold text-xl tracking-tight text-white">InstaFlow <span class="gradient-text">Sales AI</span></span>
+                        <span class="px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-full">Sin Costo</span>
+                    </div>
+                    <p class="text-xs text-gray-400">Reemplazo Autónomo de ManyChat & Agente Vendedor</p>
+                </div>
+            </div>
+
+            <!-- Server Status & Instagram Status -->
+            <div class="flex items-center gap-3">
+                <div class="hidden sm:flex items-center gap-2 px-3.5 py-1.5 rounded-full border text-xs transition"
+                     :class="metaStatus.connected ? 'bg-emerald-950/80 border-emerald-500/40 text-emerald-300' : 'bg-gray-900 border-gray-800 text-gray-400'">
+                    <span class="w-2.5 h-2.5 rounded-full" :class="metaStatus.connected ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'"></span>
+                    <span class="font-bold font-mono" x-text="metaStatus.connected ? '🟢 Instagram: @' + metaStatus.account.username : '⚠️ Sin Token de Meta'"></span>
+                </div>
+                <button @click="currentTab = 'simulator'" class="px-4 py-2 rounded-xl gradient-bg text-white font-semibold text-sm shadow-md shadow-pink-500/20 hover:opacity-95 transition flex items-center gap-2 cursor-pointer">
+                    <span>▶️</span>
+                    <span>Abrir Simulador</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Navigation Tabs Bar -->
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <nav class="flex space-x-2 border-t border-gray-800/40 py-2.5 overflow-x-auto">
+                <button @click="currentTab = 'campaigns'" 
+                        :class="currentTab === 'campaigns' ? 'bg-gray-800 text-white font-semibold border-gray-700' : 'text-gray-400 hover:text-gray-200 hover:bg-gray-900/60 border-transparent'"
+                        class="px-4 py-2 rounded-xl text-sm border transition flex items-center gap-2 whitespace-nowrap cursor-pointer">
+                    <span>⚡</span>
+                    <span>Campañas y Palabras Clave</span>
+                    <span class="px-1.5 py-0.5 text-[11px] rounded-full bg-gray-700 text-gray-300" x-text="campaigns.length"></span>
+                </button>
+
+                <button @click="currentTab = 'products'" 
+                        :class="currentTab === 'products' ? 'bg-gray-800 text-white font-semibold border-gray-700' : 'text-gray-400 hover:text-gray-200 hover:bg-gray-900/60 border-transparent'"
+                        class="px-4 py-2 rounded-xl text-sm border transition flex items-center gap-2 whitespace-nowrap cursor-pointer">
+                    <span>🤖</span>
+                    <span>Catálogo & Agente IA</span>
+                    <span class="px-1.5 py-0.5 text-[11px] rounded-full bg-gray-700 text-gray-300" x-text="products.length"></span>
+                </button>
+
+                <button @click="currentTab = 'simulator'" 
+                        :class="currentTab === 'simulator' ? 'bg-gray-800 text-white font-semibold border-gray-700' : 'text-gray-400 hover:text-gray-200 hover:bg-gray-900/60 border-transparent'"
+                        class="px-4 py-2 rounded-xl text-sm border transition flex items-center gap-2 whitespace-nowrap cursor-pointer">
+                    <span>📱</span>
+                    <span>Simulador Móvil en Vivo</span>
+                </button>
+
+                <button @click="currentTab = 'logs'" 
+                        :class="currentTab === 'logs' ? 'bg-gray-800 text-white font-semibold border-gray-700' : 'text-gray-400 hover:text-gray-200 hover:bg-gray-900/60 border-transparent'"
+                        class="px-4 py-2 rounded-xl text-sm border transition flex items-center gap-2 whitespace-nowrap cursor-pointer">
+                    <span>📊</span>
+                    <span>Leads y Registros</span>
+                    <span class="px-1.5 py-0.5 text-[11px] rounded-full bg-gray-700 text-gray-300" x-text="stats.total_leads_captured"></span>
+                </button>
+
+                <button @click="currentTab = 'setup'" 
+                        :class="currentTab === 'setup' ? 'bg-gray-800 text-white font-semibold border-gray-700' : 'text-gray-400 hover:text-gray-200 hover:bg-gray-900/60 border-transparent'"
+                        class="px-4 py-2 rounded-xl text-sm border transition flex items-center gap-2 whitespace-nowrap cursor-pointer">
+                    <span>⚙️</span>
+                    <span>Conexión con Meta</span>
+                </button>
+            </nav>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+        <!-- Top Metrics Cards -->
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+            <div class="glass-card p-5 rounded-2xl">
+                <div class="flex items-center justify-between text-gray-400 mb-2">
+                    <span class="text-xs font-semibold uppercase tracking-wider">Campañas Activas</span>
+                    <span>⚡</span>
+                </div>
+                <div class="text-3xl font-extrabold text-white" x-text="stats.active_campaigns">0</div>
+                <div class="text-xs text-gray-500 mt-1">Reglas de comentarios listas</div>
+            </div>
+
+            <div class="glass-card p-5 rounded-2xl">
+                <div class="flex items-center justify-between text-gray-400 mb-2">
+                    <span class="text-xs font-semibold uppercase tracking-wider">Leads Capturados</span>
+                    <span>👥</span>
+                </div>
+                <div class="text-3xl font-extrabold text-white" x-text="stats.total_leads_captured">0</div>
+                <div class="text-xs text-gray-500 mt-1">Usuarios que comentaron</div>
+            </div>
+
+            <div class="glass-card p-5 rounded-2xl">
+                <div class="flex items-center justify-between text-gray-400 mb-2">
+                    <span class="text-xs font-semibold uppercase tracking-wider">DMs Enviados</span>
+                    <span>📩</span>
+                </div>
+                <div class="text-3xl font-extrabold text-white" x-text="stats.total_dms_sent">0</div>
+                <div class="text-xs text-gray-500 mt-1">Mensajes directos automáticos</div>
+            </div>
+
+            <div class="glass-card p-5 rounded-2xl">
+                <div class="flex items-center justify-between text-gray-400 mb-2">
+                    <span class="text-xs font-semibold uppercase tracking-wider">Respuestas IA</span>
+                    <span>🤖</span>
+                </div>
+                <div class="text-3xl font-extrabold text-white" x-text="stats.total_ai_replies">0</div>
+                <div class="text-xs text-gray-500 mt-1">Ventas y dudas atendidas</div>
+            </div>
+        </div>
+
+        <!-- ==================== TAB 1: CAMPAIGNS ==================== -->
+        <section x-show="currentTab === 'campaigns'" class="space-y-6">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                    <h2 class="text-2xl font-bold text-white">Reglas y Palabras Clave</h2>
+                    <p class="text-sm text-gray-400">Cuando alguien comente tus palabras clave en Instagram, se activará esta respuesta pública y secuencia de DMs.</p>
+                </div>
+                <button @click="openNewCampaignModal()" class="px-4 py-2.5 rounded-xl bg-pink-600 hover:bg-pink-500 text-white font-semibold text-sm transition flex items-center gap-2 shadow-lg shadow-pink-600/20 self-start cursor-pointer">
+                    <span>➕</span>
+                    <span>Nueva Campaña</span>
+                </button>
+            </div>
+
+            <!-- Campaign Cards Grid -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <template x-for="camp in campaigns" :key="camp.id">
+                    <div class="glass-card p-6 rounded-2xl relative flex flex-col justify-between hover:shadow-xl transition border border-gray-800">
+                        <div>
+                            <!-- Header & Status Toggle -->
+                            <div class="flex items-start justify-between gap-4 mb-4">
+                                <div>
+                                    <h3 class="text-lg font-bold text-white" x-text="camp.name"></h3>
+                                    <div class="flex items-center gap-2 mt-1">
+                                        <span class="text-xs px-2 py-0.5 rounded-full bg-gray-800 text-gray-300 font-mono" x-text="camp.post_id_filter ? 'Post: ' + camp.post_id_filter : 'Todas las publicaciones'"></span>
+                                        <span class="text-xs px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-300 border border-purple-500/20" x-show="camp.enable_ai_agent">IA Activada</span>
+                                    </div>
+                                </div>
+                                <button @click="toggleCampaignStatus(camp)" 
+                                        :class="camp.is_active ? 'bg-emerald-500 text-white' : 'bg-gray-700 text-gray-400'"
+                                        class="px-3 py-1 rounded-full text-xs font-bold transition cursor-pointer">
+                                    <span x-text="camp.is_active ? 'Activa' : 'Pausada'"></span>
+                                </button>
+                            </div>
+
+                            <!-- Keywords Tags -->
+                            <div class="mb-4">
+                                <label class="text-xs font-semibold uppercase tracking-wider text-gray-400 block mb-1.5">Palabras Clave Disparadoras:</label>
+                                <div class="flex flex-wrap gap-1.5">
+                                    <template x-for="kw in camp.keywords.split(',')" :key="kw">
+                                        <span class="px-2.5 py-1 rounded-lg bg-pink-950/40 border border-pink-500/30 text-pink-300 text-xs font-mono font-bold" x-text="kw.trim()"></span>
+                                    </template>
+                                </div>
+                            </div>
+
+                            <!-- Public Reply Preview -->
+                            <div class="mb-4 bg-gray-900/60 p-3.5 rounded-xl border border-gray-800/80">
+                                <div class="flex items-center gap-1.5 text-xs text-gray-400 font-semibold mb-1">
+                                    <span>💬</span>
+                                    <span>Respuesta Pública en Comentario:</span>
+                                </div>
+                                <p class="text-xs text-gray-300 italic" x-text="camp.public_replies && camp.public_replies.length > 0 ? camp.public_replies[0] : 'Sin respuesta pública'"></p>
+                                <span class="text-[11px] text-gray-500 mt-1 block" x-show="camp.public_replies && camp.public_replies.length > 1" x-text="'+ ' + (camp.public_replies.length - 1) + ' variaciones aleatorias para evitar spam'"></span>
+                            </div>
+
+                            <!-- DM Sequence Steps Count -->
+                            <div class="mb-4 bg-gray-900/60 p-3.5 rounded-xl border border-gray-800/80">
+                                <div class="flex items-center justify-between text-xs text-gray-400 font-semibold mb-2">
+                                    <div class="flex items-center gap-1.5">
+                                        <span>📩</span>
+                                        <span>Secuencia de Mensajes Directos (DM):</span>
+                                    </div>
+                                    <span class="text-xs px-2 py-0.5 rounded bg-gray-800 text-gray-300 font-mono" x-text="(camp.dm_messages ? camp.dm_messages.length : 0) + ' pasos'"></span>
+                                </div>
+                                <div class="space-y-1.5">
+                                    <template x-for="(step, sIdx) in (camp.dm_messages || [])" :key="sIdx">
+                                        <div class="flex items-center gap-2 text-xs text-gray-300">
+                                            <span class="w-4 h-4 rounded-full bg-gray-800 text-gray-400 flex items-center justify-center text-[10px] font-bold" x-text="sIdx + 1"></span>
+                                            <span class="truncate flex-1" x-text="step.text"></span>
+                                            <span class="text-[11px] text-gray-500 font-mono" x-text="'+' + step.delay_seconds + 's'"></span>
+                                        </div>
+                                    </template>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Actions Buttons -->
+                        <div class="flex items-center justify-between pt-4 border-t border-gray-800 mt-2">
+                            <button @click="currentTab = 'simulator'; simComment = camp.keywords.split(',')[0].trim()" 
+                                    class="text-xs text-pink-400 hover:text-pink-300 flex items-center gap-1.5 font-medium transition cursor-pointer">
+                                <span>▶️</span>
+                                <span>Probar en Simulador</span>
+                            </button>
+                            <div class="flex items-center gap-2">
+                                <button @click="editCampaign(camp)" class="px-3 py-1.5 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 text-xs transition cursor-pointer">
+                                    ✏️ Editar
+                                </button>
+                                <button @click="deleteCampaign(camp.id)" class="px-3 py-1.5 rounded-lg bg-gray-800 hover:bg-red-950/60 hover:text-red-400 text-gray-400 text-xs transition cursor-pointer">
+                                    🗑️
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </template>
+            </div>
+        </section>
+
+        <!-- ==================== TAB 2: PRODUCTS & AI AGENT ==================== -->
+        <section x-show="currentTab === 'products'" class="space-y-8" style="display: none;">
+            <!-- Business Info & AI Personality -->
+            <div class="glass-panel p-6 rounded-3xl border border-gray-800">
+                <div class="flex items-center justify-between mb-6">
+                    <div>
+                        <h2 class="text-xl font-bold text-white flex items-center gap-2.5">
+                            <span>🤖</span>
+                            <span>Personalidad y Configuración del Vendedor IA</span>
+                        </h2>
+                        <p class="text-sm text-gray-400 mt-1">Este agente responderá cuando tus prospectos hagan preguntas en el DM (precio, métodos de pago, envíos, etc.).</p>
+                    </div>
+                    <button @click="saveSettings()" :disabled="isSavingSettings" class="px-5 py-2 rounded-xl bg-pink-600 hover:bg-pink-500 text-white font-semibold text-sm transition flex items-center gap-2 cursor-pointer">
+                        <span>💾</span>
+                        <span x-text="isSavingSettings ? 'Guardando...' : 'Guardar Ajustes'"></span>
+                    </button>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <label class="block text-xs font-semibold uppercase tracking-wider text-gray-400 mb-2">Nombre de tu Negocio / Marca:</label>
+                        <input type="text" x-model="settings.company_name" class="w-full px-4 py-2.5 rounded-xl bg-gray-900 border border-gray-800 text-sm text-white focus:outline-none focus:border-pink-500" placeholder="Ej: Mi Tienda Online">
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-semibold uppercase tracking-wider text-gray-400 mb-2">Gemini API Key (Google AI Studio - 100% Gratis):</label>
+                        <input type="password" x-model="settings.gemini_api_key" class="w-full px-4 py-2.5 rounded-xl bg-gray-900 border border-gray-800 text-sm text-white focus:outline-none focus:border-pink-500 font-mono" placeholder="AIzaSy...">
+                        <span class="text-[11px] text-gray-500 mt-1 block">Obtén tu clave gratuita en <a href="https://aistudio.google.com/app/apikey" target="_blank" class="text-pink-400 underline">aistudio.google.com</a>.</span>
+                    </div>
+
+                    <div class="md:col-span-2">
+                        <label class="block text-xs font-semibold uppercase tracking-wider text-gray-400 mb-2">Descripción del Negocio / Qué vendes:</label>
+                        <textarea x-model="settings.company_description" rows="2" class="w-full px-4 py-2.5 rounded-xl bg-gray-900 border border-gray-800 text-sm text-white focus:outline-none focus:border-pink-500" placeholder="Ej: Vendemos cursos de desarrollo web y plantillas profesionales con soporte 24/7..."></textarea>
+                    </div>
+
+                    <div class="md:col-span-2">
+                        <label class="block text-xs font-semibold uppercase tracking-wider text-gray-400 mb-2">Tono de Voz y Estrategia de Venta:</label>
+                        <input type="text" x-model="settings.sales_tone" class="w-full px-4 py-2.5 rounded-xl bg-gray-900 border border-gray-800 text-sm text-white focus:outline-none focus:border-pink-500" placeholder="Ej: Amable, persuasivo, responde objeciones con claridad y envía el enlace de compra.">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Product Catalog Header -->
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                    <h3 class="text-xl font-bold text-white">Catálogo de Productos para la IA</h3>
+                    <p class="text-sm text-gray-400">La IA utilizará estos productos, precios y enlaces de compra para cerrar las ventas en el chat.</p>
+                </div>
+                <button @click="openNewProductModal()" class="px-4 py-2 rounded-xl bg-gray-800 hover:bg-gray-700 text-white font-semibold text-sm transition flex items-center gap-2 border border-gray-700 cursor-pointer">
+                    <span>➕</span>
+                    <span>Añadir Producto</span>
+                </button>
+            </div>
+
+            <!-- Products Grid -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <template x-for="prod in products" :key="prod.id">
+                    <div class="glass-card p-5 rounded-2xl border border-gray-800 flex flex-col justify-between">
+                        <div>
+                            <div class="flex items-start justify-between gap-2 mb-2">
+                                <h4 class="text-base font-bold text-white" x-text="prod.name"></h4>
+                                <span class="px-2.5 py-1 rounded-lg bg-emerald-500/10 text-emerald-400 font-extrabold text-xs font-mono" x-text="prod.price"></span>
+                            </div>
+                            <p class="text-xs text-gray-400 mb-3 line-clamp-2" x-text="prod.description || 'Sin descripción'"></p>
+
+                            <div class="bg-gray-900/60 p-3 rounded-xl mb-3 border border-gray-800 text-xs">
+                                <span class="font-semibold text-gray-400 block mb-1">Enlace de Compra:</span>
+                                <a :href="prod.payment_link" target="_blank" class="text-pink-400 truncate block underline font-mono text-[11px]" x-text="prod.payment_link"></a>
+                            </div>
+
+                            <div class="text-xs text-gray-400 space-y-1" x-show="prod.benefits">
+                                <span class="font-semibold text-gray-300">Beneficios:</span>
+                                <p class="text-gray-400 text-[11px] whitespace-pre-line" x-text="prod.benefits"></p>
+                            </div>
+                        </div>
+
+                        <div class="flex items-center justify-end gap-2 pt-4 border-t border-gray-800 mt-4">
+                            <button @click="editProduct(prod)" class="px-3 py-1.5 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 text-xs transition cursor-pointer">
+                                ✏️ Editar
+                            </button>
+                            <button @click="deleteProduct(prod.id)" class="px-3 py-1.5 rounded-lg bg-gray-800 hover:bg-red-950/60 hover:text-red-400 text-gray-400 text-xs transition cursor-pointer">
+                                🗑️
+                            </button>
+                        </div>
+                    </div>
+                </template>
+            </div>
+        </section>
+
+        <!-- ==================== TAB 3: SIMULATOR ==================== -->
+        <section x-show="currentTab === 'simulator'" class="space-y-6" style="display: none;">
+            <div>
+                <h2 class="text-2xl font-bold text-white flex items-center gap-2">
+                    <span>📱</span>
+                    <span>Simulador Interactivo de Instagram</span>
+                </h2>
+                <p class="text-sm text-gray-400">Prueba cómo responde tu bot a comentarios públicos y cómo entrega la secuencia de DMs y el chat con IA en tiempo real.</p>
+            </div>
+
+            <!-- Simulator Phones Mockups Container -->
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+                
+                <!-- Simulator Controls & Triggers Tester (Col 4) -->
+                <div class="lg:col-span-4 glass-panel p-6 rounded-3xl border border-gray-800 space-y-5">
+                    <h3 class="text-base font-bold text-white flex items-center gap-2">
+                        <span>🎛️</span>
+                        <span>Panel de Pruebas</span>
+                    </h3>
+
+                    <div>
+                        <label class="block text-xs font-semibold uppercase tracking-wider text-gray-400 mb-1.5">Usuario que comenta (@):</label>
+                        <input type="text" x-model="simUsername" class="w-full px-3.5 py-2 rounded-xl bg-gray-900 border border-gray-800 text-sm text-white focus:outline-none focus:border-pink-500">
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-semibold uppercase tracking-wider text-gray-400 mb-1.5">Comentario a probar:</label>
+                        <div class="flex gap-2">
+                            <input type="text" x-model="simComment" @keyup.enter="runSimulatorComment()" class="w-full px-3.5 py-2 rounded-xl bg-gray-900 border border-gray-800 text-sm text-white focus:outline-none focus:border-pink-500" placeholder="Ej: QUIERO, PRECIO, INFO">
+                            <button @click="runSimulatorComment()" :disabled="simIsProcessing" class="px-4 py-2 rounded-xl gradient-bg text-white font-bold text-sm shadow-md shadow-pink-500/20 hover:opacity-95 transition cursor-pointer">
+                                <span x-show="!simIsProcessing">Comentar</span>
+                                <span x-show="simIsProcessing">...</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Quick Keyword Triggers Buttons -->
+                    <div>
+                        <label class="block text-xs font-semibold uppercase tracking-wider text-gray-400 mb-2">Palabras Rápidas para probar (Haz clic):</label>
+                        <div class="flex flex-wrap gap-2">
+                            <button @click="simComment = 'QUIERO'; runSimulatorComment()" class="px-3 py-1.5 rounded-xl bg-pink-950/60 hover:bg-pink-900 border border-pink-500/40 text-xs text-pink-300 font-mono font-bold cursor-pointer transition">QUIERO</button>
+                            <button @click="simComment = 'PRECIO'; runSimulatorComment()" class="px-3 py-1.5 rounded-xl bg-pink-950/60 hover:bg-pink-900 border border-pink-500/40 text-xs text-pink-300 font-mono font-bold cursor-pointer transition">PRECIO</button>
+                            <button @click="simComment = 'LINK'; runSimulatorComment()" class="px-3 py-1.5 rounded-xl bg-pink-950/60 hover:bg-pink-900 border border-pink-500/40 text-xs text-pink-300 font-mono font-bold cursor-pointer transition">LINK</button>
+                            <button @click="simComment = 'INFO'; runSimulatorComment()" class="px-3 py-1.5 rounded-xl bg-pink-950/60 hover:bg-pink-900 border border-pink-500/40 text-xs text-pink-300 font-mono font-bold cursor-pointer transition">INFO</button>
+                        </div>
+                    </div>
+
+                    <div class="p-4 rounded-2xl bg-gray-900/80 border border-gray-800 text-xs text-gray-400 space-y-2">
+                        <div class="font-bold text-gray-300 flex items-center gap-1.5">
+                            <span>💡</span>
+                            <span>¿Cómo funciona la prueba?</span>
+                        </div>
+                        <p>1. Al pulsar <strong>Comentar</strong>, el <strong>Teléfono 1</strong> simula la publicación de Instagram y tu respuesta pública.</p>
+                        <p>2. El <strong>Teléfono 2</strong> abre la bandeja de DMs y reproduce la secuencia de venta.</p>
+                        <p>3. Puedes escribir en el chat del <strong>Teléfono 2</strong> para hablar con el Vendedor IA.</p>
+                    </div>
+                </div>
+
+                <!-- Phone Mockup 1: Post & Comments (Col 4) -->
+                <div class="lg:col-span-4 flex flex-col items-center">
+                    <span class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                        <span>📸</span>
+                        <span>1. Post / Reel & Comentarios</span>
+                    </span>
+
+                    <div class="phone-mockup">
+                        <div class="phone-notch"></div>
+                        
+                        <!-- Top Instagram Bar -->
+                        <div class="pt-8 px-4 pb-2 bg-gray-900 border-b border-gray-800 flex items-center justify-between">
+                            <div class="flex items-center gap-2">
+                                <div class="w-7 h-7 rounded-full gradient-bg p-0.5">
+                                    <div class="w-full h-full bg-black rounded-full flex items-center justify-center text-[10px] font-bold text-white">
+                                        MT
+                                    </div>
+                                </div>
+                                <span class="text-xs font-bold text-white">mitienda_oficial</span>
+                            </div>
+                            <span class="text-gray-400">•••</span>
+                        </div>
+
+                        <!-- Post Mock Image -->
+                        <div class="h-40 bg-gradient-to-tr from-purple-900 via-pink-900 to-amber-800 flex items-center justify-center p-4 relative">
+                            <div class="text-center">
+                                <span class="text-2xl font-black text-white drop-shadow">OFERTA ESPECIAL 🔥</span>
+                                <p class="text-[11px] text-pink-200 mt-1">Comenta <span class="bg-black/50 px-1.5 py-0.5 rounded font-mono font-bold">QUIERO</span> para enviarte el link</p>
+                            </div>
+                        </div>
+
+                        <!-- Comments Section inside Phone -->
+                        <div class="flex-1 overflow-y-auto p-3 space-y-2.5 bg-black" id="sim-comments-list">
+                            <div class="text-[11px] text-gray-400 pb-1 border-b border-gray-900">
+                                <span class="font-bold text-white">mitienda_oficial</span> ¡Cupos limitados con 50% de descuento! Comenta abajo 👇
+                            </div>
+
+                            <template x-for="(comm, cIdx) in simPostComments" :key="cIdx">
+                                <div class="text-xs" :class="comm.isReply ? 'pl-4 border-l-2 border-pink-500/50 mt-1.5' : ''">
+                                    <div class="flex items-center gap-1.5">
+                                        <span class="font-bold text-white text-[11px]" x-text="'@' + comm.username"></span>
+                                        <span class="text-[9px] text-gray-500" x-text="comm.time"></span>
+                                        <span class="text-[9px] px-1 rounded bg-pink-500/20 text-pink-400 font-semibold" x-show="comm.isReply">Respuesta Bot</span>
+                                    </div>
+                                    <p class="text-[11px] text-gray-300 mt-0.5" x-text="comm.text"></p>
+                                </div>
+                            </template>
+                        </div>
+
+                        <!-- Bottom Comment Box -->
+                        <div class="p-2.5 bg-gray-950 border-t border-gray-800 flex items-center gap-2">
+                            <input type="text" x-model="simComment" @keyup.enter="runSimulatorComment()" placeholder="Agrega un comentario..." class="flex-1 px-3 py-1.5 rounded-full bg-gray-900 border border-gray-800 text-xs text-white focus:outline-none">
+                            <button @click="runSimulatorComment()" class="text-xs font-bold text-pink-400 px-2 cursor-pointer">Publicar</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Phone Mockup 2: Direct Messages & AI Chat (Col 4) -->
+                <div class="lg:col-span-4 flex flex-col items-center">
+                    <span class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                        <span>💬</span>
+                        <span>2. Mensaje Directo (DM) & Ventas IA</span>
+                    </span>
+
+                    <div class="phone-mockup">
+                        <div class="phone-notch"></div>
+
+                        <!-- Chat Header -->
+                        <div class="pt-8 px-4 pb-2.5 bg-gray-900 border-b border-gray-800 flex items-center justify-between">
+                            <div class="flex items-center gap-2">
+                                <div class="w-8 h-8 rounded-full gradient-bg flex items-center justify-center text-white text-xs font-bold">
+                                    MT
+                                </div>
+                                <div>
+                                    <div class="text-xs font-bold text-white flex items-center gap-1">
+                                        <span>mitienda_oficial</span>
+                                        <span class="text-blue-400 text-xs">✓</span>
+                                    </div>
+                                    <span class="text-[10px] text-emerald-400">Activo(a) ahora</span>
+                                </div>
+                            </div>
+                            <span class="text-gray-400 text-xs">ℹ️</span>
+                        </div>
+
+                        <!-- Chat Messages Container -->
+                        <div class="flex-1 overflow-y-auto p-3 space-y-3 bg-black flex flex-col" id="sim-dm-chatbox">
+                            <div class="text-center my-2" x-show="simDmMessages.length === 0">
+                                <span class="text-[10px] text-gray-600 bg-gray-900 px-3 py-1 rounded-full">Comenta en el post para iniciar la secuencia</span>
+                            </div>
+
+                            <template x-for="(msg, mIdx) in simDmMessages" :key="mIdx">
+                                <div class="flex flex-col max-w-[82%]" :class="msg.sender === 'user' ? 'self-end items-end' : 'self-start items-start'">
+                                    <div class="px-3.5 py-2 rounded-2xl text-xs leading-relaxed" 
+                                         :class="msg.sender === 'user' ? 'bg-blue-600 text-white rounded-br-none' : 'bg-gray-800 text-gray-100 rounded-bl-none border border-gray-700/60'">
+                                        <p class="whitespace-pre-line" x-text="msg.text"></p>
+                                    </div>
+                                    <span class="text-[9px] text-gray-500 mt-0.5 px-1" x-text="msg.time"></span>
+                                </div>
+                            </template>
+
+                            <!-- AI Typing Indicator -->
+                            <div class="self-start flex items-center gap-1.5 px-3 py-2 rounded-2xl bg-gray-800 text-gray-400 text-xs border border-gray-700" x-show="simIsAiTyping">
+                                <span class="w-1.5 h-1.5 rounded-full bg-pink-400 typing-dot"></span>
+                                <span class="w-1.5 h-1.5 rounded-full bg-pink-400 typing-dot"></span>
+                                <span class="w-1.5 h-1.5 rounded-full bg-pink-400 typing-dot"></span>
+                                <span class="text-[10px] ml-1 text-gray-400">Vendedor IA escribiendo...</span>
+                            </div>
+                        </div>
+
+                        <!-- Chat User Input Box -->
+                        <div class="p-2.5 bg-gray-950 border-t border-gray-800 flex items-center gap-2">
+                            <input type="text" x-model="simUserChatMessage" @keyup.enter="sendSimUserChatMessage()" placeholder="Escribe tu duda (ej: ¿Aceptan tarjeta?)..." class="flex-1 px-3 py-1.5 rounded-full bg-gray-900 border border-gray-800 text-xs text-white focus:outline-none focus:border-pink-500">
+                            <button @click="sendSimUserChatMessage()" class="w-7 h-7 rounded-full bg-pink-600 hover:bg-pink-500 text-white flex items-center justify-center transition cursor-pointer text-xs font-bold">
+                                ↑
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </section>
+
+        <!-- ==================== TAB 4: LEADS & LOGS ==================== -->
+        <section x-show="currentTab === 'logs'" class="space-y-6" style="display: none;">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h2 class="text-2xl font-bold text-white">Leads Capturados y Registro en Vivo</h2>
+                    <p class="text-sm text-gray-400">Seguimiento en tiempo real de los comentarios detectados y los mensajes enviados.</p>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button @click="resetStats()" class="px-4 py-2 rounded-xl bg-gray-800 hover:bg-red-950/60 hover:text-red-400 text-gray-400 text-sm font-semibold flex items-center gap-2 border border-gray-700 transition cursor-pointer">
+                        <span>🗑️</span>
+                        <span>Reiniciar a Cero</span>
+                    </button>
+                    <button @click="loadLeads(); loadLogs(); showToast('Datos actualizados')" class="px-4 py-2 rounded-xl bg-gray-800 hover:bg-gray-700 text-white text-sm font-semibold flex items-center gap-2 border border-gray-700 transition cursor-pointer">
+                        <span>🔄</span>
+                        <span>Refrescar</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Leads Table -->
+            <div class="glass-panel rounded-2xl border border-gray-800 overflow-hidden">
+                <div class="px-6 py-4 border-b border-gray-800 flex items-center justify-between">
+                    <h3 class="font-bold text-white flex items-center gap-2">
+                        <span>👥</span>
+                        <span>Últimos Prospectos (Leads)</span>
+                    </h3>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-sm">
+                        <thead class="bg-gray-900/80 text-gray-400 text-xs uppercase font-semibold">
+                            <tr>
+                                <th class="px-6 py-3">Usuario IG</th>
+                                <th class="px-6 py-3">Comentario</th>
+                                <th class="px-6 py-3">Post ID</th>
+                                <th class="px-6 py-3">Estado</th>
+                                <th class="px-6 py-3">Fecha y Hora</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-800/60">
+                            <template x-for="lead in leads" :key="lead.id">
+                                <tr class="hover:bg-gray-900/40">
+                                    <td class="px-6 py-3.5 font-bold text-white font-mono" x-text="'@' + lead.instagram_username"></td>
+                                    <td class="px-6 py-3.5 text-gray-300" x-text="lead.comment_text"></td>
+                                    <td class="px-6 py-3.5 text-gray-500 font-mono text-xs" x-text="lead.source_post_id || '-'"></td>
+                                    <td class="px-6 py-3.5">
+                                        <span class="px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" x-text="lead.status"></span>
+                                    </td>
+                                    <td class="px-6 py-3.5 text-xs text-gray-400 font-mono" x-text="formatDate(lead.created_at)"></td>
+                                </tr>
+                            </template>
+                            <tr x-show="leads.length === 0">
+                                <td colspan="5" class="px-6 py-8 text-center text-gray-500">No hay leads registrados aún. Realiza una prueba en el Simulador o conecta tu Webhook.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Activity Logs Feed -->
+            <div class="glass-panel p-6 rounded-2xl border border-gray-800">
+                <h3 class="font-bold text-white flex items-center gap-2 mb-4">
+                    <span>💻</span>
+                    <span>Registro de Actividad del Sistema (Logs en Vivo)</span>
+                </h3>
+                <div class="space-y-2 max-h-96 overflow-y-auto font-mono text-xs">
+                    <template x-for="log in logs" :key="log.id">
+                        <div class="p-2.5 rounded-xl bg-gray-900/70 border border-gray-800 flex items-start gap-3">
+                            <span class="px-2 py-0.5 rounded text-[10px] font-bold" 
+                                  :class="log.event_type.includes('ERROR') ? 'bg-red-500/20 text-red-400' : log.event_type.includes('DM') ? 'bg-pink-500/20 text-pink-400' : 'bg-blue-500/20 text-blue-400'"
+                                  x-text="log.event_type"></span>
+                            <div class="flex-1">
+                                <p class="text-gray-200" x-text="log.details"></p>
+                                <span class="text-[10px] text-gray-500 mt-0.5 block" x-show="log.lead_info" x-text="log.lead_info"></span>
+                            </div>
+                            <span class="text-[10px] text-gray-500 whitespace-nowrap" x-text="formatDate(log.created_at)"></span>
+                        </div>
+                    </template>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== TAB 5: META SETUP ==================== -->
+        <section x-show="currentTab === 'setup'" class="space-y-8 max-w-4xl mx-auto" style="display: none;">
+            <div>
+                <h2 class="text-2xl font-bold text-white flex items-center gap-2">
+                    <span>⚙️</span>
+                    <span>Guía de Conexión Oficial con Meta / Instagram</span>
+                </h2>
+                <p class="text-sm text-gray-400 mt-1">Sigue estos sencillos pasos para conectar tu cuenta de Instagram con este servidor sin pagar un solo centavo.</p>
+            </div>
+
+            <!-- Steps Accordion / Cards -->
+            <div class="space-y-4">
+                
+                <!-- Step 1: Requisitos de Cuenta -->
+                <div class="glass-panel p-6 rounded-2xl border border-gray-800 space-y-2">
+                    <div class="flex items-center gap-3">
+                        <span class="w-7 h-7 rounded-full bg-blue-600 text-white font-bold flex items-center justify-center text-xs">1</span>
+                        <h3 class="font-bold text-white">Preparar tu cuenta de Instagram y Facebook</h3>
+                    </div>
+                    <p class="text-xs text-gray-300 pl-10">
+                        • Convierte tu cuenta de Instagram a <strong>Cuenta Profesional</strong> (Empresarial o Creador) desde la app.<br>
+                        • Crea una <strong>Página de Facebook</strong> y vincúlala con tu cuenta de Instagram en <i>Configuración de la Página ➔ Cuentas vinculadas</i>.
+                    </p>
+                </div>
+
+                <!-- Step 2: Túnel Gratuito para Webhook -->
+                <div class="glass-panel p-6 rounded-2xl border border-gray-800 space-y-3">
+                    <div class="flex items-center gap-3">
+                        <span class="w-7 h-7 rounded-full bg-blue-600 text-white font-bold flex items-center justify-center text-xs">2</span>
+                        <h3 class="font-bold text-white">Obtener tu URL Pública HTTPS Gratuita</h3>
+                    </div>
+                    <p class="text-xs text-gray-300 pl-10">
+                        Meta requiere una URL con HTTPS para enviarte los comentarios. Puedes generarla en 1 segundo gratis ejecutando el archivo <strong class="text-pink-400">conectar_online.bat</strong> o con este comando:
+                    </p>
+                    <div class="pl-10 space-y-2">
+                        <div class="p-3 bg-gray-900 rounded-xl font-mono text-xs text-pink-300 flex items-center justify-between border border-gray-800">
+                            <span>npx -y cloudflared tunnel --url http://localhost:8000</span>
+                            <button @click="copyToClipboard('npx -y cloudflared tunnel --url http://localhost:8000')" class="px-2 py-1 rounded bg-gray-800 hover:bg-gray-700 text-white text-[11px] cursor-pointer">Copiar</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Step 3: Configurar Webhook en Meta Developers -->
+                <div class="glass-panel p-6 rounded-2xl border border-gray-800 space-y-4">
+                    <div class="flex items-center gap-3">
+                        <span class="w-7 h-7 rounded-full bg-blue-600 text-white font-bold flex items-center justify-center text-xs">3</span>
+                        <h3 class="font-bold text-white">Configurar el Webhook en developers.facebook.com</h3>
+                    </div>
+                    <p class="text-xs text-gray-300 pl-10">
+                        En tu app de Meta Developers, ve a <strong>Instagram ➔ Webhooks</strong> o <strong>Webhooks ➔ Instagram</strong> y completa los siguientes campos:
+                    </p>
+                    
+                    <div class="pl-10 space-y-3">
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-400 mb-1">Callback URL (URL de devolución de llamada):</label>
+                            <div class="flex gap-2">
+                                <input type="text" readonly :value="window.location.origin + '/webhook'" class="w-full px-3.5 py-2 rounded-xl bg-gray-900 border border-gray-800 text-xs font-mono text-white">
+                                <button @click="copyToClipboard(window.location.origin + '/webhook')" class="px-3 py-2 rounded-xl bg-gray-800 hover:bg-gray-700 text-white text-xs font-medium whitespace-nowrap cursor-pointer">Copiar URL</button>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-400 mb-1">Verify Token (Token de verificación):</label>
+                            <div class="flex gap-2">
+                                <input type="text" readonly :value="settings.meta_verify_token || 'instaflow_verify_token_secure_2026'" class="w-full px-3.5 py-2 rounded-xl bg-gray-900 border border-gray-800 text-xs font-mono text-white">
+                                <button @click="copyToClipboard(settings.meta_verify_token || 'instaflow_verify_token_secure_2026')" class="px-3 py-2 rounded-xl bg-gray-800 hover:bg-gray-700 text-white text-xs font-medium whitespace-nowrap cursor-pointer">Copiar Token</button>
+                            </div>
+                        </div>
+
+                        <div class="p-3 bg-gray-900 rounded-xl border border-gray-800 text-xs text-gray-300">
+                            <strong>Campos a suscribir en Meta:</strong> Activa <span class="text-pink-400 font-mono">comments</span>, <span class="text-pink-400 font-mono">feed</span> y <span class="text-pink-400 font-mono">messages</span>.
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Step 4: Guardar Token de Acceso -->
+                <div class="glass-panel p-6 rounded-2xl border border-gray-800 space-y-4">
+                    <div class="flex items-center gap-3">
+                        <span class="w-7 h-7 rounded-full bg-blue-600 text-white font-bold flex items-center justify-center text-xs">4</span>
+                        <h3 class="font-bold text-white">Guardar tu Token de Acceso de Meta (Graph API)</h3>
+                    </div>
+                    <div class="pl-10 space-y-3">
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-400 mb-1">Meta Page / Instagram Access Token:</label>
+                            <input type="password" x-model="settings.meta_access_token" class="w-full px-3.5 py-2 rounded-xl bg-gray-900 border border-gray-800 text-xs font-mono text-white focus:outline-none focus:border-pink-500" placeholder="EAA...">
+                        </div>
+                        <button @click="saveSettings()" class="px-5 py-2 rounded-xl bg-pink-600 hover:bg-pink-500 text-white text-xs font-bold transition cursor-pointer">Guardar Token</button>
+                    </div>
+                </div>
+
+            </div>
+        </section>
+
+    </main>
+
+    <!-- ==================== CAMPAIGN MODAL ==================== -->
+    <div x-show="campaignModalOpen" class="fixed inset-0 z-50 overflow-y-auto bg-black/80 backdrop-blur-md flex items-center justify-center p-4" style="display: none;">
+        <div class="glass-panel max-w-2xl w-full p-6 sm:p-8 rounded-3xl border border-gray-700 shadow-2xl relative space-y-5" @click.outside="campaignModalOpen = false">
+            <div class="flex items-center justify-between">
+                <h3 class="text-xl font-bold text-white" x-text="editingCampaign && editingCampaign.id ? 'Editar Campaña de Ventas' : 'Crear Nueva Campaña de Ventas'"></h3>
+                <button @click="campaignModalOpen = false" class="text-gray-400 hover:text-white cursor-pointer">✕</button>
+            </div>
+
+            <template x-if="editingCampaign">
+                <div class="space-y-4 max-h-[75vh] overflow-y-auto pr-2">
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-400 mb-1">Nombre de la Campaña:</label>
+                        <input type="text" x-model="editingCampaign.name" class="w-full px-3.5 py-2 rounded-xl bg-gray-900 border border-gray-800 text-sm text-white focus:outline-none focus:border-pink-500" placeholder="Ej: Venta Curso Marketing">
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-400 mb-1">Palabras Clave (separadas por coma):</label>
+                        <input type="text" x-model="editingCampaign.keywords" class="w-full px-3.5 py-2 rounded-xl bg-gray-900 border border-gray-800 text-sm text-white focus:outline-none focus:border-pink-500 font-mono" placeholder="QUIERO, PRECIO, INFO, LINK, COMPRAR">
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-400 mb-1">Tipo de Coincidencia:</label>
+                            <select x-model="editingCampaign.match_mode" class="w-full px-3.5 py-2 rounded-xl bg-gray-900 border border-gray-800 text-xs text-white focus:outline-none">
+                                <option value="contains">Contiene la palabra</option>
+                                <option value="exact">Coincidencia exacta</option>
+                                <option value="any">Cualquier comentario (*)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-400 mb-1">ID de Post Específico (Opcional):</label>
+                            <input type="text" x-model="editingCampaign.post_id_filter" class="w-full px-3.5 py-2 rounded-xl bg-gray-900 border border-gray-800 text-xs text-white focus:outline-none" placeholder="Vacío = Todos los posts">
+                        </div>
+                    </div>
+
+                    <!-- Public Replies List -->
+                    <div>
+                        <div class="flex items-center justify-between mb-1.5">
+                            <label class="text-xs font-semibold text-gray-400">Respuestas Públicas al Comentario (Aleatorias anti-spam):</label>
+                            <button @click="addPublicReply()" class="text-xs text-pink-400 hover:text-pink-300 font-bold cursor-pointer">+ Añadir Variación</button>
+                        </div>
+                        <div class="space-y-2">
+                            <template x-for="(rep, rIdx) in editingCampaign.public_replies" :key="rIdx">
+                                <div class="flex gap-2">
+                                    <input type="text" x-model="editingCampaign.public_replies[rIdx]" class="w-full px-3 py-1.5 rounded-xl bg-gray-900 border border-gray-800 text-xs text-white focus:outline-none">
+                                    <button @click="removePublicReply(rIdx)" class="p-1.5 text-gray-500 hover:text-red-400 cursor-pointer">🗑️</button>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+
+                    <!-- DM Sequence Builder -->
+                    <div>
+                        <div class="flex items-center justify-between mb-1.5">
+                            <label class="text-xs font-semibold text-gray-400">Secuencia de Mensajes Directos (DM):</label>
+                            <button @click="addDmStep()" class="text-xs text-pink-400 hover:text-pink-300 font-bold cursor-pointer">+ Añadir Paso de Mensaje</button>
+                        </div>
+                        <div class="space-y-3">
+                            <template x-for="(step, sIdx) in editingCampaign.dm_messages" :key="sIdx">
+                                <div class="p-3.5 rounded-2xl bg-gray-900/90 border border-gray-800 space-y-2">
+                                    <div class="flex items-center justify-between text-xs text-gray-400">
+                                        <span class="font-bold text-white" x-text="'Mensaje #' + (sIdx + 1)"></span>
+                                        <div class="flex items-center gap-3">
+                                            <div class="flex items-center gap-1.5">
+                                                <span>Pausa (segundos):</span>
+                                                <input type="number" min="0" max="60" x-model="step.delay_seconds" class="w-14 px-2 py-0.5 rounded bg-gray-800 text-white font-mono text-center">
+                                            </div>
+                                            <button @click="removeDmStep(sIdx)" class="text-gray-500 hover:text-red-400 cursor-pointer" x-show="editingCampaign.dm_messages.length > 1">
+                                                🗑️
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <textarea x-model="step.text" rows="2" class="w-full px-3 py-2 rounded-xl bg-gray-950 border border-gray-800 text-xs text-white focus:outline-none focus:border-pink-500"></textarea>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center gap-2 pt-2">
+                        <input type="checkbox" id="enable_ai" x-model="editingCampaign.enable_ai_agent" class="rounded bg-gray-900 border-gray-800 text-pink-600 focus:ring-0">
+                        <label for="enable_ai" class="text-xs text-gray-300">Activar Agente de Ventas IA para responder dudas si el cliente escribe en este chat.</label>
+                    </div>
+                </div>
+            </template>
+
+            <div class="flex items-center justify-end gap-3 pt-4 border-t border-gray-800">
+                <button @click="campaignModalOpen = false" class="px-4 py-2 rounded-xl bg-gray-800 hover:bg-gray-700 text-gray-300 text-xs font-semibold cursor-pointer">Cancelar</button>
+                <button @click="saveCampaign()" class="px-5 py-2 rounded-xl gradient-bg text-white text-xs font-bold shadow-md shadow-pink-500/20 cursor-pointer">Guardar Campaña</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== PRODUCT MODAL ==================== -->
+    <div x-show="productModalOpen" class="fixed inset-0 z-50 overflow-y-auto bg-black/80 backdrop-blur-md flex items-center justify-center p-4" style="display: none;">
+        <div class="glass-panel max-w-lg w-full p-6 sm:p-8 rounded-3xl border border-gray-700 shadow-2xl relative space-y-4" @click.outside="productModalOpen = false">
+            <div class="flex items-center justify-between">
+                <h3 class="text-xl font-bold text-white" x-text="editingProduct && editingProduct.id ? 'Editar Producto' : 'Añadir Producto al Catálogo'"></h3>
+                <button @click="productModalOpen = false" class="text-gray-400 hover:text-white cursor-pointer">✕</button>
+            </div>
+
+            <template x-if="editingProduct">
+                <div class="space-y-3">
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-400 mb-1">Nombre del Producto / Servicio:</label>
+                        <input type="text" x-model="editingProduct.name" class="w-full px-3.5 py-2 rounded-xl bg-gray-900 border border-gray-800 text-sm text-white focus:outline-none" placeholder="Ej: Curso Premium de Marketing">
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-400 mb-1">Precio:</label>
+                            <input type="text" x-model="editingProduct.price" class="w-full px-3.5 py-2 rounded-xl bg-gray-900 border border-gray-800 text-xs text-white focus:outline-none" placeholder="Ej: $47 USD">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-400 mb-1">Enlace de Compra / Pago:</label>
+                            <input type="text" x-model="editingProduct.payment_link" class="w-full px-3.5 py-2 rounded-xl bg-gray-900 border border-gray-800 text-xs text-white focus:outline-none" placeholder="https://pay.hotmart.com/...">
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-400 mb-1">Descripción:</label>
+                        <textarea x-model="editingProduct.description" rows="2" class="w-full px-3.5 py-2 rounded-xl bg-gray-900 border border-gray-800 text-xs text-white focus:outline-none" placeholder="Qué es y para qué sirve..."></textarea>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-400 mb-1">Beneficios Clave (viñetas):</label>
+                        <textarea x-model="editingProduct.benefits" rows="2" class="w-full px-3.5 py-2 rounded-xl bg-gray-900 border border-gray-800 text-xs text-white focus:outline-none" placeholder="• Acceso de por vida&#10;• Certificado incluido"></textarea>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-400 mb-1">Preguntas Frecuentes y Métodos de Pago:</label>
+                        <textarea x-model="editingProduct.faq" rows="2" class="w-full px-3.5 py-2 rounded-xl bg-gray-900 border border-gray-800 text-xs text-white focus:outline-none" placeholder="Aceptamos tarjeta, PayPal y transferencias..."></textarea>
+                    </div>
+                </div>
+            </template>
+
+            <div class="flex items-center justify-end gap-3 pt-4 border-t border-gray-800">
+                <button @click="productModalOpen = false" class="px-4 py-2 rounded-xl bg-gray-800 hover:bg-gray-700 text-gray-300 text-xs font-semibold cursor-pointer">Cancelar</button>
+                <button @click="saveProduct()" class="px-5 py-2 rounded-xl bg-pink-600 hover:bg-pink-500 text-white text-xs font-bold cursor-pointer">Guardar Producto</button>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
