@@ -414,12 +414,27 @@ async def api_delete_product(prod_id: int):
     return {"status": "deleted"}
 
 @app.get("/api/leads")
-async def api_list_leads():
-    return list_leads(limit=50)
+async def api_list_leads(limit: int = 200):
+    return list_leads(limit=limit)
+
+@app.post("/api/leads/batch")
+async def api_batch_leads(leads_data: List[Dict[str, Any]]):
+    for ld in leads_data:
+        record_lead(
+            username=ld.get("username", "usuario"),
+            user_id=ld.get("user_id", ""),
+            campaign_id=ld.get("campaign_id", 1),
+            comment_id=ld.get("comment_id", ""),
+            post_id=ld.get("post_id", ""),
+            comment_text=ld.get("comment_text", ""),
+            status="DM_SENT"
+        )
+        add_activity_log("DM_SENT", f"DM entregado a @{ld.get('username')}: '{ld.get('comment_text')}'", f"Lead: @{ld.get('username')}")
+    return {"status": "synced", "count": len(leads_data)}
 
 @app.get("/api/logs")
-async def api_list_logs():
-    return list_activity_logs(limit=50)
+async def api_list_logs(limit: int = 200):
+    return list_activity_logs(limit=limit)
 
 @app.get("/api/settings")
 async def api_get_settings():

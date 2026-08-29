@@ -165,7 +165,17 @@ def get_settings() -> Dict[str, str]:
     conn = get_db_connection()
     rows = conn.execute("SELECT key, value FROM settings").fetchall()
     conn.close()
-    return {row["key"]: row["value"] for row in rows}
+    settings_dict = {row["key"]: row["value"] for row in rows}
+
+    # Fallback permanente a Variables de Entorno de Render / config
+    if not settings_dict.get("gemini_api_key"):
+        settings_dict["gemini_api_key"] = config.GEMINI_API_KEY
+    if not settings_dict.get("meta_access_token"):
+        settings_dict["meta_access_token"] = config.META_ACCESS_TOKEN
+    if not settings_dict.get("instagram_account_id"):
+        settings_dict["instagram_account_id"] = config.INSTAGRAM_ACCOUNT_ID
+
+    return settings_dict
 
 def update_settings(updates: Dict[str, str]):
     conn = get_db_connection()
