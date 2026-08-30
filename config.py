@@ -16,7 +16,7 @@ class AppConfig(BaseModel):
 
     # Gemini AI Settings (Free Tier available at aistudio.google.com)
     GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", "")
-    GEMINI_MODEL: str = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+    GEMINI_MODEL: str = os.getenv("GEMINI_MODEL", "gemini-3.6-flash")
 
     # Server Settings
     PORT: int = int(os.getenv("PORT", "8000"))

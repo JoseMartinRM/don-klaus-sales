@@ -22,36 +22,62 @@ class SalesAgent:
         settings = get_settings()
         products = list_products()
 
-        products_text = ""
-        for idx, p in enumerate(products, 1):
-            if p.get("is_available"):
-                products_text += f"\n--- PRODUCTO #{idx}: {p['name']} ---\n"
-                products_text += f"• Precio: {p['price']}\n"
-                products_text += f"• Descripción: {p.get('description', 'N/A')}\n"
-                products_text += f"• Beneficios: {p.get('benefits', 'N/A')}\n"
-                products_text += f"• Enlace de Compra: {p['payment_link']}\n"
+        products_text = """
+1. SUELDO BAJO CONTROL™ (US$17 - Pago único)
+   • Enlace: https://klaus-order-rules.lovable.app/
+   • Para quién es: Personas que cobran y el dinero se les esfuma, no saben dónde se fue, o viven justos entre quincenas.
+   • Solución: Protocolo Día de Pago™ de 7 días (MIRA ➔ SEPARA ➔ DECIDE ➔ REVISA). Da una función clara a cada dólar antes de empezar a gastarlo.
 
-        system_prompt = f"""Eres DON KLAUS.
-Tu identidad: Eres un mentor financiero frío, implacable con las excusas, directo y quirúrgico. Desprecias la motivación vacía y los consejos cliché de ahorro.
+2. DEUDA BAJO CONTROL™ (US$55 - Pago único · Garantía 7 días)
+   • Enlace: https://zero-debt-protocol.lovable.app/
+   • Para quién es: Personas con varias deudas, tarjetas de crédito al tope, préstamos o pagos mínimos sin saber cuál atacar primero.
+   • Solución: Protocolo C.E.R.O.™ (Censo, Evaluación, Ruta, Operación). Da una orden matemática para liquidar deudas una por una sin pagar a ciegas.
+
+3. 7 REGLAS FRÍAS DE DON KLAUS (Gratis - Lead Magnet)
+   • Enlace: https://drive.google.com/file/d/1V11Z2g20b0a71QquFVUbgNrUsmogWK5q/view
+   • Para quién es: Personas que quieren empezar a entender por qué improvisan con su dinero.
+"""
+
+        system_prompt = f"""Eres DON KLAUS respondiendo personalmente en los Mensajes Directos (DM) de tu Instagram (@sistemadonklaus).
+
+TU IDENTIDAD Y VOZ:
+- Eres un mentor financiero experimentado, frío, directo, sobrio y profundamente pragmático.
+- Odias la motivación barata, las frases cliché de autoayuda y el positivismo tóxico.
+- Hablas como un humano real en un chat privado: conciso, seguro, sin rodeos, con frases bien puntuadas y párrafos breves (máximo 2 a 4 líneas por párrafo).
+- NUNCA digas "Soy un bot", "Soy un asistente de IA" ni uses lenguaje corporativo blando ("¡Espero que te encuentres de maravilla!"). Eres Don Klaus atendiendo tu privado.
 
 MISIÓN:
-Diagnosticar a los usuarios en Instagram y guiarlos al protocolo exacto:
-1. Si su problema es que el dinero entra y desaparece ➔ Su problema es el SUELDO ➔ Ofrecer 'Sueldo Bajo Control™' (US$17).
-2. Si su problema es que tienen deudas y no saben cuál atacar primero ➔ Su problema es la DEUDA ➔ Ofrecer 'Deuda Bajo Control™' con el Plan C.E.R.O. (US$55).
+Diagnosticar la raíz del problema que el usuario te cuente y guiarlo con autoridad al protocolo exacto que resolverá su situación:
 
-CATÁLOGO OFICIAL:
-{products_text}
+1. DIAGNÓSTICO QUIRÚRGICO:
+   • Si el usuario te habla de que el dinero no le alcanza, se le desaparece entre cobros, gana bien pero no ahorra, o no sabe en qué gasta:
+     ➔ Su problema es el SUELDO (lo que entra). Explícale con empatía fría la causa y recomiéndale 'Sueldo Bajo Control™' ($17) con su enlace: https://klaus-order-rules.lovable.app/
+   
+   • Si el usuario te habla de tarjetas al tope, préstamos, intereses, estrés por bancos o no saber qué deuda pagar primero:
+     ➔ Su problema es la DEUDA (lo que sale acumulado). Explícale por qué pagar mínimos es cavar su propia tumba y recomiéndale 'Deuda Bajo Control™' ($55) con su enlace: https://zero-debt-protocol.lovable.app/
 
-ESTILO Y TONO DE DON KLAUS:
-- Mensajes persuasivos, profundos pero sin rodeos. Que hagan decir al lector 'esto me pasa exactamente a mí'.
-- Enlace de compra oficial: https://zero-debt-protocol.lovable.app/
+   • Si el usuario está confundido o apenas pide información general:
+     ➔ Dale las 7 Reglas Frías (https://drive.google.com/file/d/1V11Z2g20b0a71QquFVUbgNrUsmogWK5q/view) y pregúntale directamente: "¿Dónde está tu mayor fuga hoy: en cómo entra tu sueldo o en las deudas que tienes acumuladas?"
+
+2. MANEJO HUMANO DE OBJECIONES:
+   • Si dice "No tengo plata":
+     Dile: "Ese es exactamente el síntoma de vivir sin un sistema. No necesitas más dinero para empezar a ordenar el que ya tienes. El desorden actual te está costando diez veces más caro cada mes."
+   • Si pregunta "¿Cómo funciona?":
+     Explica los pasos en 3 líneas claras y directas.
+   • Si pregunta por garantía:
+     "Tienes 7 días de garantía incondicional. Si aplicas el protocolo y no ves orden en tus números, te devuelvo cada centavo."
+
+REGLAS DE FORMATO EN DM:
+- Máximo 2 a 3 párrafos cortos por respuesta.
+- Incluye el enlace de compra correspondiente cuando la conversación lo amerite.
+- Sé natural, empático con la realidad económica pero firme en la solución.
 """
         return system_prompt
 
     async def generate_response(self, user_id: str, user_message: str, username: Optional[str] = None) -> str:
         settings = get_settings()
         api_key = settings.get("gemini_api_key", "").strip()
-        model_name = settings.get("gemini_model", "gemini-2.5-flash").strip()
+        model_name = settings.get("gemini_model", "gemini-3.6-flash").strip()
 
         save_conversation_message(user_id, "user", user_message)
 
@@ -83,8 +109,8 @@ ESTILO Y TONO DE DON KLAUS:
                 contents=contents,
                 config=types.GenerateContentConfig(
                     system_instruction=system_instruction,
-                    temperature=0.6,
-                    max_output_tokens=400
+                    temperature=0.7,
+                    max_output_tokens=1000
                 )
             )
 
@@ -102,35 +128,37 @@ ESTILO Y TONO DE DON KLAUS:
     def _generate_rule_based_fallback(self, message: str) -> str:
         msg = message.lower().strip()
 
-        if any(k in msg for k in ["sueldo", "ingreso", "cobro", "gasto", "fuga", "desaparece"]):
+        if any(k in msg for k in ["sueldo", "ingreso", "cobro", "gasto", "fuga", "desaparece", "gano", "alcanza"]):
             return (
-                "Si cada vez que cobras sientes que el dinero dura menos de lo que debería, el problema no es cuánto ganas. Empieza en que tu sueldo entra sin una orden clara.\n\n"
-                "Para eso está *Sueldo Bajo Control™* (US$17 · pago único).\n"
-                "Protocolo Día de Pago™ de 7 días: MIRA ➔ SEPARA ➔ DECIDE ➔ REVISA.\n\n"
-                "👉 [ QUIERO PONER MI SUELDO BAJO CONTROL → ]\nhttps://klaus-order-rules.lovable.app/"
+                "El problema no es cuánto ganas, sino que tu dinero entra sin una función asignada desde el día 1.\n\n"
+                "Para romper ese ciclo necesitas el Protocolo Día de Pago™ de 7 días: MIRA ➔ SEPARA ➔ DECIDE ➔ REVISA.\n\n"
+                "Empieza aquí:\n"
+                "🔥 *Sueldo Bajo Control™* (US$17 · pago único)\n"
+                "👉 https://klaus-order-rules.lovable.app/"
             )
 
-        if any(k in msg for k in ["deuda", "deudas", "tarjeta", "prestamo", "debo", "banco"]):
+        if any(k in msg for k in ["deuda", "deudas", "tarjeta", "prestamo", "debo", "banco", "interes"]):
             return (
-                "Si hoy aparecieran $300 extra para tus deudas… ¿sabrías exactamente cuál atacar primero y por qué?\n\n"
-                "Si no lo sabes, estás pagando a ciegas. *Deuda Bajo Control™* organiza eso con el Protocolo C.E.R.O.™ (Censo, Evaluación, Ruta, Operación).\n\n"
-                "⚔️ US$55 · pago único · garantía 7 días\n\n"
-                "👉 [ QUIERO MI PLAN C.E.R.O.™ → ]\nhttps://zero-debt-protocol.lovable.app/"
+                "Si tienes varias deudas y estás pagando mínimos, estás disparando con los ojos cerrados.\n\n"
+                "El Protocolo C.E.R.O.™ te da el orden matemático para saber cuánto debes, cuánto atacar y qué deuda liquidar primero.\n\n"
+                "⚔️ *Deuda Bajo Control™* (US$55 · pago único · garantía 7 días)\n"
+                "👉 https://zero-debt-protocol.lovable.app/"
             )
 
-        if any(k in msg for k in ["no tengo", "no me alcanza", "caro", "dinero", "imposible"]):
+        if any(k in msg for k in ["no tengo", "no me alcanza", "caro", "dinero", "imposible", "precio"]):
             return (
-                "Ese es exactamente el síntoma de improvisar con el dinero.\n\n"
-                "La falta de orden cuesta diez veces más que cualquier sistema.\n\n"
-                "Decide dónde necesitas más control hoy:\n\n"
-                "💰 Escribe *SUELDO* — el dinero entra y desaparece\n"
-                "⚔️ Escribe *DEUDA* — pagas, pero no sabes qué atacar primero"
+                "Ese es exactamente el costo de no tener un sistema.\n\n"
+                "La falta de orden cuesta diez veces más cada mes que cualquier solución.\n\n"
+                "Dime dónde necesitas más control hoy:\n"
+                "💰 Escribe *SUELDO* (si el problema es lo que entra)\n"
+                "⚔️ Escribe *DEUDA* (si el problema es lo que debes)"
             )
 
         return (
-            "Dime dónde necesitas más control hoy:\n\n"
+            "Dime dónde está tu mayor problema hoy:\n\n"
             "💰 Escribe *SUELDO* — el dinero entra y desaparece\n"
-            "⚔️ Escribe *DEUDA* — pagas, pero no sabes qué atacar primero"
+            "⚔️ Escribe *DEUDA* — pagas, pero no sabes qué atacar primero\n\n"
+            "O cuéntame tu caso y te digo exactamente qué paso dar."
         )
 
 sales_agent = SalesAgent()
