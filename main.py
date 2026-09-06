@@ -102,16 +102,35 @@ async def verify_webhook(
     return Response(content="Verification failed", status_code=403)
 
 
+def resolve_spintax(text: str) -> str:
+    """
+    Convierte sintaxis de variación tipo {opcion1|opcion2|opcion3}
+    en una opción seleccionada aleatoriamente para evitar huellas hash repetitivas de spam.
+    """
+    if not text:
+        return ""
+    pattern = re.compile(r'\{([^{}]+)\}')
+    while pattern.search(text):
+        text = pattern.sub(lambda m: random.choice(m.group(1).split('|')), text)
+    return text
+
 async def execute_dm_sequence(page_id: str, recipient_id: str, comment_id: Optional[str], dm_steps: List[Dict[str, Any]], username: str):
     client = get_graph_client()
     for idx, step in enumerate(dm_steps):
-        text = step.get("text", "")
+        raw_text = step.get("text", "")
         delay = int(step.get("delay_seconds", 0))
 
+        # 1. Resolver spintax dinámico y nombres
+        text = resolve_spintax(raw_text)
         text = text.replace("@username", f"@{username}").replace("{{username}}", username)
 
+        # 2. Human Jitter (Retardo con variación humana aleatoria)
         if delay > 0:
-            await asyncio.sleep(delay)
+            jitter = random.uniform(0.8, 3.5)
+            await asyncio.sleep(delay + jitter)
+        elif idx == 0:
+            # Pausa natural antes del primer contacto (3 a 8 seg)
+            await asyncio.sleep(random.uniform(3.0, 8.0))
 
         if idx == 0 and comment_id:
             await client.send_private_message_by_comment(page_id, comment_id, text)
@@ -146,6 +165,17 @@ def match_keyword(comment_text: str, keywords_str: str, match_mode: str) -> bool
     return any(k in comment_clean for k in keywords)
 
 
+
+async def safe_reply_to_comment(comment_id: str, reply_template: str, username: str):
+    # Pausa humana aleatoria antes de responder el comentario público
+    await asyncio.sleep(random.uniform(2.5, 7.5))
+    text = resolve_spintax(reply_template)
+    text = text.replace("@username", f"@{username}").replace("{{username}}", username)
+    try:
+        await get_graph_client().reply_to_comment(comment_id, text)
+    except Exception as e:
+        logger.warning(f"No se pudo publicar comentario público en {comment_id}: {e}")
+
 @app.post("/webhook")
 async def receive_webhook(request: Request, background_tasks: BackgroundTasks):
     try:
@@ -159,6 +189,11 @@ async def receive_webhook(request: Request, background_tasks: BackgroundTasks):
     clean_dedup_cache()
 
     settings = get_settings()
+    # 🛑 BOTÓN DE SEGURIDAD: Pausa total para recuperación de Shadowban (48-72h)
+    if settings.get("automations_paused", "false").lower() == "true":
+        logger.info("⏸️ Automatizaciones en MODO PAUSA (Recuperación de algoritmo activa). Evento ignorado.")
+        return Response(content="PAUSED_FOR_COOLDOWN", status_code=200)
+
     my_ig_id = settings.get("instagram_account_id", "").strip()
     my_page_id = settings.get("meta_page_id", config.META_PAGE_ID).strip()
     target_id = my_ig_id or my_page_id or "me"
@@ -222,8 +257,7 @@ async def receive_webhook(request: Request, background_tasks: BackgroundTasks):
                     public_replies = matched_campaign.get("public_replies", [])
                     if public_replies:
                         chosen_reply = random.choice(public_replies)
-                        chosen_reply = chosen_reply.replace("@username", f"@{username}").replace("{{username}}", username)
-                        background_tasks.add_task(get_graph_client().reply_to_comment, comment_id, chosen_reply)
+                        background_tasks.add_task(safe_reply_to_comment, comment_id, chosen_reply, username)
 
                     dm_messages = matched_campaign.get("dm_messages", [])
                     if dm_messages:
@@ -235,6 +269,7 @@ async def receive_webhook(request: Request, background_tasks: BackgroundTasks):
                             dm_messages,
                             username
                         )
+
 
                     record_lead(
                         username=username,

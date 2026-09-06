@@ -26,9 +26,10 @@ class InstagramGraphClient:
             return {"connected": False, "message": "No hay token configurado"}
         
         base_url = self._get_base_url(t)
+        fields = "id,username,account_type" if t.startswith("IG") else "id,name,link"
         try:
             async with httpx.AsyncClient(timeout=10.0) as client:
-                res = await client.get(f"{base_url}/me", params={"access_token": t, "fields": "id,username,account_type"})
+                res = await client.get(f"{base_url}/me", params={"access_token": t, "fields": fields})
                 if res.status_code == 200:
                     data = res.json()
                     return {"connected": True, "account": data}

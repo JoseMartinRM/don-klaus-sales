@@ -32,7 +32,7 @@ def setup_don_klaus_funnel():
     # Campaña 1: Lead Magnet Principal (7 Reglas Frías)
     camp_lead_magnet = {
         "name": "1. Lead Magnet - 7 Reglas Frías de Don Klaus",
-        "keywords": "reglas, regla, klaus, don klaus, quiero, quiero las reglas, pdf, guia, guía, info, informacion, información, dinero, plata, la plata, mi plata, plata gracias, quiero plata, respeto, el respeto, mis respetos, con respeto, sistema, frases, frias, frías, libro, libreta, consejo, consejos, enviar, enviamelo, envíamelo, link, enlace, acceso, pasamelo, pásamelo, me interesa, yo, yo quiero",
+        "keywords": "reglas, regla, klaus, don klaus, quiero, quiero las reglas, pdf, guia, guía, info, informacion, información, dinero, plata, la plata, mi plata, plata gracias, quiero plata, respeto, el respeto, mis respetos, con respeto, sistema, frases, frias, frías, libro, libreta, consejo, consejos, enviar, enviamelo, envíamelo, link, enlace, acceso, pasamelo, pásamelo, me interesa, yo, yo quiero, cuenta, cuentas, 1, 2, 3, regla 1, regla 2, regla 3",
         "match_mode": "contains",
         "post_id_filter": "",
         "public_replies": [
