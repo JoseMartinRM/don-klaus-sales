@@ -294,7 +294,7 @@ async def receive_webhook(request: Request, background_tasks: BackgroundTasks):
                         status="DM_SENT"
                     )
 
-        # 2. Mensajes Directos (DMs) entrantes
+        # 2. Mensajes Directos (DMs) entrantes (incluye Respuestas a Historias y Menciones)
         messaging_events = entry.get("messaging", [])
         for event in messaging_events:
             sender_id = event.get("sender", {}).get("id")
@@ -311,6 +311,21 @@ async def receive_webhook(request: Request, background_tasks: BackgroundTasks):
                 continue
             if msg_id:
                 PROCESSED_MESSAGES[msg_id] = time.time()
+
+            # 📸 Detección de Respuestas a Historias (Story Reply)
+            reply_to_story = message.get("reply_to", {}).get("story")
+            if reply_to_story:
+                if not msg_text:
+                    msg_text = "[Reaccionó a tu Historia de Instagram]"
+                else:
+                    msg_text = f"[Respondió a tu Historia]: {msg_text}"
+
+            # 📸 Detección de Menciones en Historias (Story Mention)
+            attachments = message.get("attachments", [])
+            for att in attachments:
+                if att.get("type") in ["story_mention", "story_share"]:
+                    msg_text = "[Te mencionó en su Historia de Instagram]"
+                    break
 
             if sender_id and msg_text:
                 add_activity_log("DM_RECEIVED", f"DM recibido de {sender_id}: '{msg_text}'", f"User: {sender_id}")
