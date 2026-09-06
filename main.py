@@ -166,15 +166,35 @@ def match_keyword(comment_text: str, keywords_str: str, match_mode: str) -> bool
 
 
 
-async def safe_reply_to_comment(comment_id: str, reply_template: str, username: str):
-    # Pausa humana aleatoria antes de responder el comentario público
-    await asyncio.sleep(random.uniform(2.5, 7.5))
-    text = resolve_spintax(reply_template)
-    text = text.replace("@username", f"@{username}").replace("{{username}}", username)
+async def handle_comment_flow(target_id: str, user_id: str, comment_id: str, comment_text: str, username: str, matched_campaign: Dict[str, Any]):
+    # 1. Generar respuesta pública personalizada con IA Don Klaus
+    public_reply = await sales_agent.generate_comment_reply(username, comment_text)
+    await asyncio.sleep(random.uniform(3.0, 7.5))
     try:
-        await get_graph_client().reply_to_comment(comment_id, text)
+        await get_graph_client().reply_to_comment(comment_id, public_reply)
     except Exception as e:
         logger.warning(f"No se pudo publicar comentario público en {comment_id}: {e}")
+
+    # 2. Generar Opt-In DM ultra-humano y SIN ENLACES con IA
+    optin_dm = await sales_agent.generate_optin_dm(username, comment_text)
+    await asyncio.sleep(random.uniform(4.0, 9.0))
+    try:
+        await get_graph_client().send_private_message_by_comment(target_id, comment_id, optin_dm)
+    except Exception as e:
+        logger.warning(f"No se pudo enviar private message by comment en {comment_id}: {e}")
+
+async def handle_dm_flow(target_id: str, sender_id: str, msg_text: str):
+    # Simular pausa de lectura y pensamiento humano
+    await asyncio.sleep(random.uniform(2.5, 5.0))
+    
+    # Generar respuesta contextual con IA Don Klaus
+    ai_reply = await sales_agent.generate_response(sender_id, msg_text)
+    
+    # Simular tiempo de tipeo natural antes del envío
+    typing_delay = min(len(ai_reply) * 0.035, 7.5) + random.uniform(1.0, 2.5)
+    await asyncio.sleep(typing_delay)
+    
+    await get_graph_client().send_direct_message(target_id, sender_id, ai_reply)
 
 @app.post("/webhook")
 async def receive_webhook(request: Request, background_tasks: BackgroundTasks):
@@ -254,22 +274,15 @@ async def receive_webhook(request: Request, background_tasks: BackgroundTasks):
                         break
 
                 if matched_campaign:
-                    public_replies = matched_campaign.get("public_replies", [])
-                    if public_replies:
-                        chosen_reply = random.choice(public_replies)
-                        background_tasks.add_task(safe_reply_to_comment, comment_id, chosen_reply, username)
-
-                    dm_messages = matched_campaign.get("dm_messages", [])
-                    if dm_messages:
-                        background_tasks.add_task(
-                            execute_dm_sequence,
-                            target_id,
-                            user_id,
-                            comment_id,
-                            dm_messages,
-                            username
-                        )
-
+                    background_tasks.add_task(
+                        handle_comment_flow,
+                        target_id,
+                        user_id,
+                        comment_id,
+                        comment_text,
+                        username,
+                        matched_campaign
+                    )
 
                     record_lead(
                         username=username,
@@ -301,29 +314,7 @@ async def receive_webhook(request: Request, background_tasks: BackgroundTasks):
 
             if sender_id and msg_text:
                 add_activity_log("DM_RECEIVED", f"DM recibido de {sender_id}: '{msg_text}'", f"User: {sender_id}")
-                
-                # Check if DM text matches specific SUELDO / DEUDA campaigns directly
-                matched_dm_camp = None
-                for camp in active_campaigns:
-                    if match_keyword(msg_text, camp.get("keywords", ""), camp.get("match_mode", "contains")):
-                        matched_dm_camp = camp
-                        break
-
-                if matched_dm_camp and matched_dm_camp.get("dm_messages"):
-                    background_tasks.add_task(
-                        execute_dm_sequence,
-                        target_id,
-                        sender_id,
-                        None,
-                        matched_dm_camp["dm_messages"],
-                        "amigo"
-                    )
-                else:
-                    async def handle_ai_dm(user_id: str, text: str):
-                        ai_reply = await sales_agent.generate_response(user_id, text)
-                        await get_graph_client().send_direct_message(target_id, user_id, ai_reply)
-
-                    background_tasks.add_task(handle_ai_dm, sender_id, msg_text)
+                background_tasks.add_task(handle_dm_flow, target_id, sender_id, msg_text)
 
     return Response(content="EVENT_RECEIVED", status_code=200)
 
