@@ -206,13 +206,12 @@ async def receive_webhook(request: Request, background_tasks: BackgroundTasks):
     raw_json_str = json.dumps(body, ensure_ascii=False)
     logger.info(f"Webhook Event Received: {raw_json_str}")
     
-    clean_dedup_cache()
-
+    # 🛑 HARD STOP TOTAL (48h-72h Cooldown Anti-Shadowban):
     settings = get_settings()
-    # 🛑 BOTÓN DE SEGURIDAD: Pausa total para recuperación de Shadowban (48-72h)
-    if settings.get("automations_paused", "false").lower() == "true":
-        logger.info("⏸️ Automatizaciones en MODO PAUSA (Recuperación de algoritmo activa). Evento ignorado.")
-        return Response(content="PAUSED_FOR_COOLDOWN", status_code=200)
+    is_paused = config.AUTOMATIONS_PAUSED or settings.get("automations_paused", "true").lower() == "true"
+    if is_paused:
+        logger.info("🛑 [HARD STOP ACTIVO] Todas las automatizaciones están 100% DETENIDAS. Ningún mensaje o comentario será enviado.")
+        return Response(content="AUTOMATIONS_PAUSED", status_code=200)
 
     my_ig_id = settings.get("instagram_account_id", "").strip()
     my_page_id = settings.get("meta_page_id", config.META_PAGE_ID).strip()

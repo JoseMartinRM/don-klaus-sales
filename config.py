@@ -18,9 +18,13 @@ class AppConfig(BaseModel):
     GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", "")
     GEMINI_MODEL: str = os.getenv("GEMINI_MODEL", "gemini-3.6-flash")
 
+    # Kill-Switch: Pausa total de automatizaciones para recuperación de Shadowban
+    AUTOMATIONS_PAUSED: bool = True
+
     # Server Settings
     PORT: int = int(os.getenv("PORT", "8000"))
     HOST: str = os.getenv("HOST", "0.0.0.0")
     DATABASE_PATH: str = str(BASE_DIR / "instaflow.db")
 
 config = AppConfig()
+
