@@ -2,13 +2,13 @@ FROM python:3.10-slim
 
 WORKDIR /app
 
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONPATH=/app
+
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
-
-# Run database setup to populate campaigns and products on first start
-RUN python setup_don_klaus.py
 
 ENV PORT=8000
 EXPOSE 8000

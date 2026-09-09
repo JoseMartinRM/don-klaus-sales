@@ -19,7 +19,7 @@ class AppConfig(BaseModel):
     GEMINI_MODEL: str = os.getenv("GEMINI_MODEL", "gemini-3.6-flash")
 
     # Kill-Switch: Pausa total de automatizaciones para recuperación de Shadowban
-    AUTOMATIONS_PAUSED: bool = True
+    AUTOMATIONS_PAUSED: bool = False
 
     # Server Settings
     PORT: int = int(os.getenv("PORT", "8000"))

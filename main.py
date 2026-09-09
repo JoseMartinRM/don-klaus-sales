@@ -184,17 +184,100 @@ async def handle_comment_flow(target_id: str, user_id: str, comment_id: str, com
         logger.warning(f"No se pudo enviar private message by comment en {comment_id}: {e}")
 
 async def handle_dm_flow(target_id: str, sender_id: str, msg_text: str):
-    # Simular pausa de lectura y pensamiento humano
-    await asyncio.sleep(random.uniform(2.5, 5.0))
+    # Simular pausa de lectura y pensamiento humano (2.0 a 4.0 seg)
+    await asyncio.sleep(random.uniform(2.0, 4.0))
     
-    # Generar respuesta contextual con IA Don Klaus
+    clean_msg = normalize_text(msg_text)
+    words = set(re.findall(r'\w+', clean_msg))
+    client = get_graph_client()
+
+    is_short_message = len(clean_msg.split()) <= 4
+    
+    # 1. Caso: El usuario elige SUELDO (vía botón postback, quick reply o palabra directa)
+    if clean_msg in ["sueldo", "sueldos", "1", "opcion 1", "opción 1", "ordenar sueldo", "sueldo bajo control"] or (is_short_message and ("sueldo" in words or "sueldos" in words)):
+        title = "Sueldo Bajo Control™ ($17)"
+        subtitle = "Protocolo Día de Pago™ en 7 días: MIRA, SEPARA, DECIDE y REVISA. Pago único."
+        buttons = [
+            {
+                "type": "web_url",
+                "url": "https://klaus-order-rules.lovable.app/",
+                "title": "🔥 Adquirir ($17)"
+            },
+            {
+                "type": "postback",
+                "title": "⚔️ Ver Plan Deudas",
+                "payload": "DEUDA"
+            },
+            {
+                "type": "postback",
+                "title": "📥 Descargar Reglas",
+                "payload": "QUIERO"
+            }
+        ]
+        await client.send_generic_card(target_id, sender_id, title=title, subtitle=subtitle, buttons=buttons)
+        return
+
+    # 2. Caso: El usuario elige DEUDA (vía botón postback, quick reply o palabra directa)
+    if clean_msg in ["deuda", "deudas", "2", "opcion 2", "opción 2", "liquidar deudas", "deuda bajo control"] or (is_short_message and ("deuda" in words or "deudas" in words)):
+        title = "Deuda Bajo Control™ ($55)"
+        subtitle = "Protocolo C.E.R.O.™ para liquidar deudas sin pagar a ciegas. Garantía 7 días."
+        buttons = [
+            {
+                "type": "web_url",
+                "url": "https://zero-debt-protocol.lovable.app/",
+                "title": "⚔️ Adquirir ($55)"
+            },
+            {
+                "type": "postback",
+                "title": "💰 Ver Plan Sueldo",
+                "payload": "SUELDO"
+            },
+            {
+                "type": "postback",
+                "title": "📥 Descargar Reglas",
+                "payload": "QUIERO"
+            }
+        ]
+        await client.send_generic_card(target_id, sender_id, title=title, subtitle=subtitle, buttons=buttons)
+        return
+
+    # 3. Caso: El usuario pide la guía / confirma el Opt-In (QUIERO, SI, KLAUS, DALE, etc.)
+    optin_triggers = {"si", "quiero", "klaus", "dale", "pasamelo", "envialo", "claro", "porfa", "mandalo", "donde", "reglas", "pdf", "guia"}
+    if clean_msg in optin_triggers or (is_short_message and bool(words & optin_triggers)):
+        title = "7 Reglas Frías de Don Klaus"
+        subtitle = "Método directo para ordenar tu dinero y frenar fugas. Toca una opción:"
+        buttons = [
+            {
+                "type": "web_url",
+                "url": "https://drive.google.com/file/d/1V11Z2g20b0a71QquFVUbgNrUsmogWK5q/view",
+                "title": "📥 Descargar PDF"
+            },
+            {
+                "type": "postback",
+                "title": "💰 Ordenar Sueldo",
+                "payload": "SUELDO"
+            },
+            {
+                "type": "postback",
+                "title": "⚔️ Liquidar Deudas",
+                "payload": "DEUDA"
+            }
+        ]
+        await client.send_generic_card(target_id, sender_id, title=title, subtitle=subtitle, buttons=buttons)
+        return
+
+    # 4. Caso: Pregunta abierta o caso particular -> Gemini AI Don Klaus
     ai_reply = await sales_agent.generate_response(sender_id, msg_text)
-    
-    # Simular tiempo de tipeo natural antes del envío
-    typing_delay = min(len(ai_reply) * 0.035, 7.5) + random.uniform(1.0, 2.5)
+    typing_delay = min(len(ai_reply) * 0.035, 6.0) + random.uniform(1.0, 2.0)
     await asyncio.sleep(typing_delay)
     
-    await get_graph_client().send_direct_message(target_id, sender_id, ai_reply)
+    # Enviar respuesta con botones rápidos (Quick Replies)
+    quick_replies = [
+        {"content_type": "text", "title": "💰 Sueldo ($17)", "payload": "SUELDO"},
+        {"content_type": "text", "title": "⚔️ Deuda ($55)", "payload": "DEUDA"},
+        {"content_type": "text", "title": "📥 Descargar Reglas", "payload": "QUIERO"}
+    ]
+    await client.send_quick_replies(target_id, sender_id, ai_reply, quick_replies)
 
 @app.post("/webhook")
 async def receive_webhook(request: Request, background_tasks: BackgroundTasks):
@@ -208,7 +291,7 @@ async def receive_webhook(request: Request, background_tasks: BackgroundTasks):
     
     # 🛑 HARD STOP TOTAL (48h-72h Cooldown Anti-Shadowban):
     settings = get_settings()
-    is_paused = config.AUTOMATIONS_PAUSED or settings.get("automations_paused", "true").lower() == "true"
+    is_paused = config.AUTOMATIONS_PAUSED or settings.get("automations_paused", "false").lower() == "true"
     if is_paused:
         logger.info("🛑 [HARD STOP ACTIVO] Todas las automatizaciones están 100% DETENIDAS. Ningún mensaje o comentario será enviado.")
         return Response(content="AUTOMATIONS_PAUSED", status_code=200)
@@ -299,8 +382,16 @@ async def receive_webhook(request: Request, background_tasks: BackgroundTasks):
             sender_id = event.get("sender", {}).get("id")
             recipient_id = event.get("recipient", {}).get("id")
             message = event.get("message", {})
-            msg_text = message.get("text", "")
-            msg_id = message.get("mid", "")
+            postback = event.get("postback", {})
+
+            # 1. Obtener texto del mensaje (soporta texto regular, botones rápidos y tarjetas)
+            msg_text = ""
+            if message:
+                msg_text = message.get("quick_reply", {}).get("payload") or message.get("text", "")
+            elif postback:
+                msg_text = postback.get("payload") or postback.get("title", "")
+
+            msg_id = message.get("mid", "") or postback.get("mid", "")
             is_echo = message.get("is_echo", False)
 
             if is_echo or sender_id in [my_ig_id, my_page_id, entry_id]:

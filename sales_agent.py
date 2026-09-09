@@ -17,10 +17,13 @@ from database import get_settings, list_products, get_conversation_history, save
 logger = logging.getLogger("sales_agent")
 
 FALLBACK_MODELS = [
-    "gemini-3.6-flash",
     "gemini-flash-latest",
-    "gemini-3.7-flash",
-    "gemini-3.8-flash"
+    "gemini-3.6-flash",
+    "gemini-3.5-flash",
+    "gemini-flash-lite-latest",
+    "gemini-2.5-flash-lite",
+    "gemini-3.1-flash-lite",
+    "gemini-3.7-flash"
 ]
 
 class SalesAgent:
@@ -137,22 +140,20 @@ Usuario: @{username}
 Comentario que dejó: "{comment_text}"
 
 REGLAS:
-- Redacta una respuesta de EXACTAMENTE 1 sola línea corta (máximo 12 palabras).
-- Tono: Sobrio, educado, humano, directo y frío (estilo Don Klaus).
+- Redacta una respuesta de 1 sola frase corta, directa y natural.
+- Tono: Sobrio, educado, humano y sobrio (estilo Don Klaus).
 - Menciona que le dejaste un mensaje por privado (DM) para que lo revise.
-- Incluye el @{username}.
-- NO uses signos de exclamación exagerados ni suenes a bot corporativo.
-- Devuelve ÚNICAMENTE el texto de la respuesta, nada más."""
+- Incluye obligatoriamente la mención @{username}.
+- Devuelve ÚNICAMENTE el texto de la respuesta sin comillas ni explicaciones adicionales."""
 
             reply = self._call_gemini_with_fallback(
                 client,
                 contents=[prompt],
-                max_tokens=60,
-                temperature=0.8
+                max_tokens=120,
+                temperature=0.7
             )
-            # Limpiar comillas si las agregó
-            clean_reply = reply.strip().strip('"').strip("'")
-            if not clean_reply or len(clean_reply) > 120:
+            clean_reply = reply.strip().strip('"').strip("'").strip("`")
+            if not clean_reply or len(clean_reply) < 5:
                 return random.choice(fallback_options)
             return clean_reply
         except Exception as e:
@@ -167,9 +168,9 @@ REGLAS:
         api_key = settings.get("gemini_api_key", "").strip()
 
         fallback_optins = [
-            f"Hola @{username}. Vi tu comentario en el reel.\n\nTe preparé el documento de las 7 Reglas Frías para que lo tengas a mano.\n\n¿Quieres que te lo pase por aquí? Respóndeme con un «SÍ» o «KLAUS» y te libero el acceso directo.",
-            f"Hola @{username}. Vi que pediste las Reglas Frías de Don Klaus.\n\nSon 7 reglas prácticas para cuando el dinero entra y desaparece sin orden.\n\n¿Te las comparto por aquí? Escríbeme «SÍ» y te paso el documento.",
-            f"Hola @{username}, vi tu comentario.\n\nTengo listo el PDF con las 7 Reglas Frías para enviártelo.\n\n¿Quieres que te lo pase por este chat? Dime «SÍ» o «KLAUS» para abrírtelo de inmediato."
+            f"Hola @{username} 👋 Vi tu comentario en el reel.\n\nTengo lista la guía práctica con las 7 Reglas de Don Klaus para ayudarte a ordenar tu dinero, frenar fugas y tomar el control de tus finanzas (es 100% gratis).\n\n¿Quieres que te la pase por aquí? Respóndeme con un «SÍ» o «QUIERO» y te la envío de inmediato.",
+            f"Hola @{username} 👋 Vi que te interesó el reel sobre finanzas.\n\nTe preparé la guía gratuita con las 7 Reglas de Don Klaus: un método simple y directo para organizar tus ingresos y evitar que el dinero se te escape a fin de mes.\n\n¿Te la comparto por este chat? Escríbeme «SÍ» y te paso el documento ahora mismo.",
+            f"Hola @{username} 👋 Vi tu mensaje en la publicación.\n\nArmé un recurso práctico y 100% gratuito que te ayudará a ponerle orden a tus gastos y finanzas paso a paso.\n\n¿Quieres que te lo entregue por este medio? Dime «SÍ» o «QUIERO» y te lo paso al instante."
         ]
 
         if not api_key:
@@ -179,24 +180,26 @@ REGLAS:
             from google import genai
             client = genai.Client(api_key=api_key)
 
-            prompt = f"""Eres Don Klaus enviando un primer mensaje privado (DM) en Instagram a @{username}, quien comentó: "{comment_text}" en tu reel.
+            prompt = f"""Eres Don Klaus enviando un primer mensaje privado (DM) en Instagram a @{username}, quien comentó en tu reel: "{comment_text}".
+
+OBJETIVO:
+Escribir un mensaje súper claro, entendible, atractivo y de alto valor para que el usuario quiera responder de inmediato.
 
 REGLAS CRÍTICAS:
 - PROHIBIDO TERMINANTEMENTE incluir enlaces web, URLs o http (Meta penaliza enlaces en el primer mensaje).
-- Tono: Sobrio, pragmático, respetuoso, directo y humano.
-- Saluda brevemente a @{username}.
-- Dile que tienes listo el documento de las 7 Reglas Frías.
-- Pregúntale si quiere que se lo pases por este chat y pídele que te responda «SÍ» o «KLAUS» para abrírselo.
-- Máximo 3 a 4 líneas cortas.
-- Devuelve solo el texto del mensaje."""
+- Explica de forma sencilla y directa que le tienes listo un recurso / guía práctica 100% gratuita que le ayudará a ordenar su dinero, frenar fugas y mejorar sus finanzas.
+- Haz un llamado a la acción simple: pregúntale si quiere que se lo pases por este chat y pídele que responda con la palabra «SÍ» o «QUIERO».
+- Tono: Cercano, sobrio, seguro y persuasivo (lenguaje simple, sin tecnicismos raros).
+- Longitud: Máximo 3 a 4 líneas cortas y limpias.
+- Devuelve solo el texto del mensaje sin comillas."""
 
             dm_text = self._call_gemini_with_fallback(
                 client,
                 contents=[prompt],
-                max_tokens=150,
+                max_tokens=350,
                 temperature=0.7
             )
-            clean_dm = dm_text.strip().strip('"')
+            clean_dm = dm_text.strip().strip('"').strip("'").strip("`")
             # Seguridad: si la IA incluyó una URL por error, usamos fallback seguro
             if "http" in clean_dm.lower() or "www." in clean_dm.lower():
                 return random.choice(fallback_optins)
@@ -255,7 +258,7 @@ REGLAS CRÍTICAS:
     def _generate_rule_based_fallback(self, message: str) -> str:
         msg = message.lower().strip()
 
-        if any(k in msg for k in ["si", "sí", "klaus", "dale", "pasamelo", "pásamelo", "envialo", "envíalo", "claro", "porfa", "mandalo", "mándalo"]):
+        if any(k in msg for k in ["si", "sí", "quiero", "klaus", "dale", "pasamelo", "pásamelo", "envialo", "envíalo", "claro", "porfa", "mandalo", "mándalo", "donde", "dónde"]):
             return (
                 "Aquí tienes las Reglas Frías de Don Klaus:\n\n"
                 "👉 https://drive.google.com/file/d/1V11Z2g20b0a71QquFVUbgNrUsmogWK5q/view\n\n"
