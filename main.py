@@ -241,8 +241,8 @@ async def handle_dm_flow(target_id: str, sender_id: str, msg_text: str):
         await client.send_generic_card(target_id, sender_id, title=title, subtitle=subtitle, buttons=buttons)
         return
 
-    # 3. Caso: El usuario pide la guía / confirma el Opt-In (QUIERO, SI, KLAUS, DALE, etc.)
-    optin_triggers = {"si", "quiero", "klaus", "dale", "pasamelo", "envialo", "claro", "porfa", "mandalo", "donde", "reglas", "pdf", "guia"}
+    # 3. Caso: El usuario pide la guía / confirma el Opt-In (QUIERO, SI, KLAUS, LOGO, DALE, etc.)
+    optin_triggers = {"si", "quiero", "klaus", "logo", "dale", "pasamelo", "envialo", "claro", "porfa", "mandalo", "donde", "reglas", "pdf", "guia"}
     if clean_msg in optin_triggers or (is_short_message and bool(words & optin_triggers)):
         title = "7 Reglas Frías de Don Klaus"
         subtitle = "Método directo para ordenar tu dinero y frenar fugas. Toca una opción:"

@@ -265,7 +265,7 @@ REGLAS CRÍTICAS:
     def _generate_rule_based_fallback(self, message: str) -> str:
         msg = message.lower().strip()
 
-        if any(k in msg for k in ["si", "sí", "quiero", "klaus", "dale", "pasamelo", "pásamelo", "envialo", "envíalo", "claro", "porfa", "mandalo", "mándalo", "donde", "dónde"]):
+        if any(k in msg for k in ["si", "sí", "quiero", "klaus", "logo", "dale", "pasamelo", "pásamelo", "envialo", "envíalo", "claro", "porfa", "mandalo", "mándalo", "donde", "dónde"]):
             return (
                 "Aquí tienes las Reglas Frías de Don Klaus:\n\n"
                 "👉 https://drive.google.com/file/d/1V11Z2g20b0a71QquFVUbgNrUsmogWK5q/view\n\n"
