@@ -193,10 +193,46 @@ async def handle_dm_flow(target_id: str, sender_id: str, msg_text: str):
 
     is_short_message = len(clean_msg.split()) <= 4
     
-    # 1. Caso: El usuario elige SUELDO (vía botón postback, quick reply o palabra directa)
+    # 1. Caso: El usuario pide la guía / confirma el Opt-In (QUIERO, SI, KLAUS, LOGO, DALE, etc.)
+    optin_triggers = {"si", "quiero", "klaus", "logo", "dale", "pasamelo", "envialo", "claro", "porfa", "mandalo", "donde", "reglas", "pdf", "guia"}
+    if clean_msg in optin_triggers or (is_short_message and bool(words & optin_triggers)):
+        # PASO A: Entrega 100% limpia del Regalo sin venta prematura
+        title = "7 Reglas Frías de Don Klaus"
+        subtitle = "Guía práctica en PDF para ordenar tu dinero y frenar fugas (100% Gratis)."
+        buttons = [
+            {
+                "type": "web_url",
+                "url": "https://drive.google.com/file/d/1V11Z2g20b0a71QquFVUbgNrUsmogWK5q/view",
+                "title": "📥 Descargar PDF"
+            }
+        ]
+        await client.send_generic_card(target_id, sender_id, title=title, subtitle=subtitle, buttons=buttons)
+        
+        # PASO B: Mensaje conversacional de transición diagnóstica con botones rápidos (ManyChat style)
+        await asyncio.sleep(random.uniform(2.0, 3.5))
+        transition_text = (
+            "Léelas con una sola pregunta en mente:\n"
+            "«¿Cuál de estas reglas estoy rompiendo hoy?»\n\n"
+            "Para decirte qué paso dar después de revisarlas, dime dónde necesitas más control hoy 👇"
+        )
+        quick_replies = [
+            {"content_type": "text", "title": "💰 Ordenar Sueldo", "payload": "SUELDO"},
+            {"content_type": "text", "title": "⚔️ Liquidar Deudas", "payload": "DEUDA"}
+        ]
+        await client.send_quick_replies(target_id, sender_id, transition_text, quick_replies)
+        return
+
+    # 2. Caso: El usuario elige SUELDO (vía botón postback, quick reply o palabra directa)
     if clean_msg in ["sueldo", "sueldos", "1", "opcion 1", "opción 1", "ordenar sueldo", "sueldo bajo control"] or (is_short_message and ("sueldo" in words or "sueldos" in words)):
+        intro_text = (
+            "El problema no es cuánto ganas, sino que tu dinero entra sin una función asignada desde el día 1.\n\n"
+            "Para blindar tu dinero necesitas el Protocolo Día de Pago™ de 7 días (MIRA ➔ SEPARA ➔ DECIDE ➔ REVISA)."
+        )
+        await client.send_direct_message(target_id, sender_id, intro_text)
+        await asyncio.sleep(random.uniform(1.5, 2.5))
+        
         title = "Sueldo Bajo Control™ ($17)"
-        subtitle = "Protocolo Día de Pago™ en 7 días: MIRA, SEPARA, DECIDE y REVISA. Pago único."
+        subtitle = "Protocolo Día de Pago™ en 7 días para blindar tu dinero. Pago único."
         buttons = [
             {
                 "type": "web_url",
@@ -205,20 +241,22 @@ async def handle_dm_flow(target_id: str, sender_id: str, msg_text: str):
             },
             {
                 "type": "postback",
-                "title": "⚔️ Ver Plan Deudas",
+                "title": "⚔️ Tengo Deudas",
                 "payload": "DEUDA"
-            },
-            {
-                "type": "postback",
-                "title": "📥 Descargar Reglas",
-                "payload": "QUIERO"
             }
         ]
         await client.send_generic_card(target_id, sender_id, title=title, subtitle=subtitle, buttons=buttons)
         return
 
-    # 2. Caso: El usuario elige DEUDA (vía botón postback, quick reply o palabra directa)
+    # 3. Caso: El usuario elige DEUDA (vía botón postback, quick reply o palabra directa)
     if clean_msg in ["deuda", "deudas", "2", "opcion 2", "opción 2", "liquidar deudas", "deuda bajo control"] or (is_short_message and ("deuda" in words or "deudas" in words)):
+        intro_text = (
+            "Pagar mínimos o disparar a ciegas es cavar tu propia tumba financiera. Los bancos están diseñados para atraparte en intereses.\n\n"
+            "El Protocolo C.E.R.O.™ te da la ruta matemática de cuánto debes, cuánto destinar y qué deuda liquidar primero."
+        )
+        await client.send_direct_message(target_id, sender_id, intro_text)
+        await asyncio.sleep(random.uniform(1.5, 2.5))
+
         title = "Deuda Bajo Control™ ($55)"
         subtitle = "Protocolo C.E.R.O.™ para liquidar deudas sin pagar a ciegas. Garantía 7 días."
         buttons = [
@@ -231,36 +269,6 @@ async def handle_dm_flow(target_id: str, sender_id: str, msg_text: str):
                 "type": "postback",
                 "title": "💰 Ver Plan Sueldo",
                 "payload": "SUELDO"
-            },
-            {
-                "type": "postback",
-                "title": "📥 Descargar Reglas",
-                "payload": "QUIERO"
-            }
-        ]
-        await client.send_generic_card(target_id, sender_id, title=title, subtitle=subtitle, buttons=buttons)
-        return
-
-    # 3. Caso: El usuario pide la guía / confirma el Opt-In (QUIERO, SI, KLAUS, LOGO, DALE, etc.)
-    optin_triggers = {"si", "quiero", "klaus", "logo", "dale", "pasamelo", "envialo", "claro", "porfa", "mandalo", "donde", "reglas", "pdf", "guia"}
-    if clean_msg in optin_triggers or (is_short_message and bool(words & optin_triggers)):
-        title = "7 Reglas Frías de Don Klaus"
-        subtitle = "Método directo para ordenar tu dinero y frenar fugas. Toca una opción:"
-        buttons = [
-            {
-                "type": "web_url",
-                "url": "https://drive.google.com/file/d/1V11Z2g20b0a71QquFVUbgNrUsmogWK5q/view",
-                "title": "📥 Descargar PDF"
-            },
-            {
-                "type": "postback",
-                "title": "💰 Ordenar Sueldo",
-                "payload": "SUELDO"
-            },
-            {
-                "type": "postback",
-                "title": "⚔️ Liquidar Deudas",
-                "payload": "DEUDA"
             }
         ]
         await client.send_generic_card(target_id, sender_id, title=title, subtitle=subtitle, buttons=buttons)
