@@ -211,28 +211,29 @@ async def handle_dm_flow(target_id: str, sender_id: str, msg_text: str):
         # PASO B: Mensaje conversacional de transición diagnóstica con botones rápidos (ManyChat style)
         await asyncio.sleep(random.uniform(2.0, 3.5))
         transition_text = (
-            "Léelas con una sola pregunta en mente:\n"
-            "«¿Cuál de estas reglas estoy rompiendo hoy?»\n\n"
-            "Para decirte qué paso dar después de revisarlas, dime dónde necesitas más control hoy 👇"
+            "Léelo pensando en esto: La mayoría cree que necesita ganar más, pero el 90% de las fugas ocurren por no tener un protocolo el día de pago.\n\n"
+            "Cuando le eches un ojo, dime con sinceridad:\n"
+            "¿Dónde sientes que se te escapa más dinero hoy? 👇"
         )
         quick_replies = [
-            {"content_type": "text", "title": "💰 Ordenar Sueldo", "payload": "SUELDO"},
-            {"content_type": "text", "title": "⚔️ Liquidar Deudas", "payload": "DEUDA"}
+            {"content_type": "text", "title": "💰 Mi Sueldo no rinde", "payload": "SUELDO"},
+            {"content_type": "text", "title": "⚔️ Mis Deudas ahogan", "payload": "DEUDA"}
         ]
         await client.send_quick_replies(target_id, sender_id, transition_text, quick_replies)
         return
 
     # 2. Caso: El usuario elige SUELDO (vía botón postback, quick reply o palabra directa)
-    if clean_msg in ["sueldo", "sueldos", "1", "opcion 1", "opción 1", "ordenar sueldo", "sueldo bajo control"] or (is_short_message and ("sueldo" in words or "sueldos" in words)):
+    if clean_msg in ["sueldo", "sueldos", "1", "opcion 1", "opción 1", "ordenar sueldo", "sueldo bajo control", "mi sueldo no rinde"] or (is_short_message and ("sueldo" in words or "sueldos" in words)):
         intro_text = (
-            "El problema no es cuánto ganas, sino que tu dinero entra sin una función asignada desde el día 1.\n\n"
-            "Para blindar tu dinero necesitas el Protocolo Día de Pago™ de 7 días (MIRA ➔ SEPARA ➔ DECIDE ➔ REVISA)."
+            "Te entiendo perfectamente. Cobras, pagas algunas cosas, compras otras... y a los 5 días no sabes en qué se fue todo.\n\n"
+            "Más de 1,400 personas en la comunidad tenían ese mismo problema. Al aplicar el Protocolo Día de Pago™ de 7 días (MIRA ➔ SEPARA ➔ DECIDE ➔ REVISA), recuperaron entre $150 y $300 en fugas en su primera quincena.\n\n"
+            "Por solo US$17 (un solo pago de por vida) tienes el programa completo en video y plantillas listas. Tienes 7 días de garantía incondicional."
         )
         await client.send_direct_message(target_id, sender_id, intro_text)
         await asyncio.sleep(random.uniform(1.5, 2.5))
         
         title = "Sueldo Bajo Control™ ($17)"
-        subtitle = "Protocolo Día de Pago™ en 7 días para blindar tu dinero. Pago único."
+        subtitle = "Protocolo Día de Pago™ en 7 días para blindar tu dinero. Garantía 7 días."
         buttons = [
             {
                 "type": "web_url",
@@ -249,10 +250,11 @@ async def handle_dm_flow(target_id: str, sender_id: str, msg_text: str):
         return
 
     # 3. Caso: El usuario elige DEUDA (vía botón postback, quick reply o palabra directa)
-    if clean_msg in ["deuda", "deudas", "2", "opcion 2", "opción 2", "liquidar deudas", "deuda bajo control"] or (is_short_message and ("deuda" in words or "deudas" in words)):
+    if clean_msg in ["deuda", "deudas", "2", "opcion 2", "opción 2", "liquidar deudas", "deuda bajo control", "mis deudas ahogan"] or (is_short_message and ("deuda" in words or "deudas" in words)):
         intro_text = (
-            "Pagar mínimos o disparar a ciegas es cavar tu propia tumba financiera. Los bancos están diseñados para atraparte en intereses.\n\n"
-            "El Protocolo C.E.R.O.™ te da la ruta matemática de cuánto debes, cuánto destinar y qué deuda liquidar primero."
+            "Pagar mínimos o abonar a ciegas es trabajar como esclavo para regalarle intereses al banco. Los bancos apuestan a que no tienes un plan de ataque.\n\n"
+            "Con Deuda Bajo Control™ aplicas el Protocolo C.E.R.O.™ para censar tus números y saber exactamente qué deuda matar primero paso a paso.\n\n"
+            "Por US$55 (pago único) tienes el mapa exacto para liquidarlas una por una. Cuentas con 7 días de garantía incondicional: riesgo cero."
         )
         await client.send_direct_message(target_id, sender_id, intro_text)
         await asyncio.sleep(random.uniform(1.5, 2.5))
