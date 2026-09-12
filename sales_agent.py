@@ -229,15 +229,31 @@ REGLAS CRÍTICAS:
             client = genai.Client(api_key=api_key)
             system_instruction = self.build_system_prompt()
 
-            history = get_conversation_history(user_id, limit=8)
+            history = get_conversation_history(user_id, limit=10)
             contents = []
 
             for msg in history:
-                role = "user" if msg["role"] == "user" else "model"
-                contents.append(types.Content(
-                    role=role,
-                    parts=[types.Part.from_text(text=msg["content"])]
-                ))
+                text_content = (msg.get("content") or "").strip()
+                if not text_content:
+                    continue
+                role = "user" if msg.get("role") == "user" else "model"
+                if contents and contents[-1].role == role:
+                    existing_text = contents[-1].parts[0].text
+                    contents[-1] = types.Content(
+                        role=role,
+                        parts=[types.Part.from_text(text=f"{existing_text}\n{text_content}")]
+                    )
+                else:
+                    contents.append(types.Content(
+                        role=role,
+                        parts=[types.Part.from_text(text=text_content)]
+                    ))
+
+            while contents and contents[0].role != "user":
+                contents.pop(0)
+
+            if not contents:
+                contents = [types.Content(role="user", parts=[types.Part.from_text(text=user_message)])]
 
             reply_text = self._call_gemini_with_fallback(
                 client,
