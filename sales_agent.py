@@ -17,12 +17,12 @@ from database import get_settings, list_products, get_conversation_history, save
 logger = logging.getLogger("sales_agent")
 
 FALLBACK_MODELS = [
-    "gemini-3.5-flash",
-    "gemini-flash-latest",
-    "gemini-flash-lite-latest",
+    "gemini-3.6-flash",
+    "gemini-3.5-flash-lite",
     "gemini-3.1-flash-lite",
     "gemini-3.7-flash",
-    "gemini-3.6-flash"
+    "gemini-3.8-flash",
+    "gemini-3.5-flash"
 ]
 
 class SalesAgent:
@@ -67,7 +67,7 @@ REGLAS DE ORO DE REDACCIÓN:
 - No uses lenguaje robótico ni corporativo."""
         return system_prompt
 
-    def _call_gemini_with_fallback(self, client, contents, system_instruction=None, max_tokens=800, temperature=0.7) -> str:
+    def _call_gemini_with_fallback(self, client, contents, system_instruction=None, max_tokens=2048, temperature=0.7) -> str:
         from google.genai import types
 
         config = types.GenerateContentConfig(
@@ -189,7 +189,7 @@ REGLAS CRÍTICAS:
             dm_text = self._call_gemini_with_fallback(
                 client,
                 contents=[prompt],
-                max_tokens=350,
+                max_tokens=1500,
                 temperature=0.8
             )
             clean_dm = dm_text.strip().strip('"').strip("'").strip("`")
@@ -250,7 +250,7 @@ REGLAS CRÍTICAS:
                 client,
                 contents=contents,
                 system_instruction=system_instruction,
-                max_tokens=600,
+                max_tokens=2048,
                 temperature=0.7
             )
 
