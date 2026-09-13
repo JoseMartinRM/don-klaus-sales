@@ -358,9 +358,11 @@ def save_conversation_message(instagram_user_id: str, role: str, message_text: s
 def get_conversation_history(instagram_user_id: str, limit: int = 10) -> List[Dict[str, str]]:
     conn = get_db_connection()
     rows = conn.execute("""
-    SELECT role, message_text FROM conversations
-    WHERE instagram_user_id = ?
-    ORDER BY id ASC LIMIT ?
+    SELECT role, message_text FROM (
+        SELECT id, role, message_text FROM conversations
+        WHERE instagram_user_id = ?
+        ORDER BY id DESC LIMIT ?
+    ) ORDER BY id ASC
     """, (instagram_user_id, limit)).fetchall()
     conn.close()
     return [{"role": r["role"], "content": r["message_text"]} for r in rows]

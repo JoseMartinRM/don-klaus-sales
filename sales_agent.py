@@ -48,9 +48,15 @@ ESTRUCTURA DE CONVERSIÓN EN 3 PASOS (HORMOZI & VOSS):
    • Si pide el link o quiere comprar: Dale el link directo con la garantía incondicional de 7 días (riesgo 100% nuestro).
 
 CATÁLOGO EXACTO DE SOLUCIONES:
+• 7 REGLAS FRÍAS DE DON KLAUS (PDF de Frases y Reglas de Control Financiero · 100% GRATIS):
+  - Solución: Guía práctica en PDF para identificar las 7 fugas de dinero más comunes y ordenar tus números.
+  - Enlace: https://drive.google.com/file/d/1V11Z2g20b0a71QquFVUbgNrUsmogWK5q/view
+  - Regla: Si el usuario dice "sí", "quiero", "pásame el pdf", "las frases", "el libro", "la guía", o confirma el regalo, entrégale el enlace del PDF de inmediato con total amabilidad y pregúntale dónde siente que se le escapa más dinero hoy (en su Sueldo o en sus Deudas).
+
 • SUELDO BAJO CONTROL™ (US$17 · Pago único · Garantía 7 días):
   - Solución: Protocolo Día de Pago™ de 7 días (MIRA ➔ SEPARA ➔ DECIDE ➔ REVISA). Videos cortos de 5 min y plantillas listas (cero Excels complicados).
   - Enlace: https://klaus-order-rules.lovable.app/
+
 • DEUDA BAJO CONTROL™ (US$55 · Pago único · Garantía 7 días):
   - Solución: Protocolo C.E.R.O.™ para liquidar deudas una por una sin regalarle intereses a los bancos.
   - Enlace: https://zero-debt-protocol.lovable.app/
@@ -267,7 +273,7 @@ REGLAS CRÍTICAS:
     def _generate_rule_based_fallback(self, message: str) -> str:
         msg = message.lower().strip()
 
-        if any(k in msg for k in ["si", "sí", "quiero", "klaus", "logo", "dale", "pasamelo", "pásamelo", "envialo", "envíalo", "claro", "porfa", "mandalo", "mándalo", "donde", "dónde"]):
+        if any(k in msg for k in ["si", "sí", "quiero", "klaus", "logo", "dale", "pasamelo", "pásamelo", "envialo", "envíalo", "claro", "porfa", "mandalo", "mándalo", "donde", "dónde", "frases", "frase", "pdf", "guia", "guía", "libro", "regalo", "gratis", "reglas", "regla"]):
             return (
                 "Aquí tienes las Reglas Frías de Don Klaus:\n\n"
                 "👉 https://drive.google.com/file/d/1V11Z2g20b0a71QquFVUbgNrUsmogWK5q/view\n\n"

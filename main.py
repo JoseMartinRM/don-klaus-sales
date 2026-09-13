@@ -184,8 +184,8 @@ async def handle_comment_flow(target_id: str, user_id: str, comment_id: str, com
         logger.warning(f"No se pudo enviar private message by comment en {comment_id}: {e}")
 
 async def handle_dm_flow(target_id: str, sender_id: str, msg_text: str):
-    # Simular pausa de lectura y pensamiento humano (2.0 a 4.0 seg)
-    await asyncio.sleep(random.uniform(2.0, 4.0))
+    # Simular pausa de lectura y pensamiento humano (2.0 a 3.5 seg)
+    await asyncio.sleep(random.uniform(2.0, 3.5))
     
     clean_msg = normalize_text(msg_text)
     words = set(re.findall(r'\w+', clean_msg))
@@ -193,10 +193,31 @@ async def handle_dm_flow(target_id: str, sender_id: str, msg_text: str):
 
     is_short_message = len(clean_msg.split()) <= 4
     
-    # 1. Caso: El usuario pide la guía / confirma el Opt-In (QUIERO, SI, KLAUS, LOGO, DALE, etc.)
-    optin_triggers = {"si", "quiero", "klaus", "logo", "dale", "pasamelo", "envialo", "claro", "porfa", "mandalo", "donde", "reglas", "pdf", "guia"}
-    if clean_msg in optin_triggers or (is_short_message and bool(words & optin_triggers)):
-        # PASO A: Entrega 100% limpia del Regalo sin venta prematura
+    # Detección de Sueldo y Deuda
+    is_sueldo_intent = clean_msg in ["sueldo", "sueldos", "1", "opcion 1", "opción 1", "ordenar sueldo", "sueldo bajo control", "mi sueldo no rinde"] or (is_short_message and ("sueldo" in words or "sueldos" in words))
+    is_deuda_intent = clean_msg in ["deuda", "deudas", "2", "opcion 2", "opción 2", "liquidar deudas", "deuda bajo control", "mis deudas ahogan"] or (is_short_message and ("deuda" in words or "deudas" in words))
+
+    # 1. Caso: El usuario pide la guía / confirma el Opt-In (QUIERO, SI, SI QUIERO, FRASES, PDF, REGLAS, LOGO, etc.)
+    gift_phrases = [
+        "si quiero", "si por favor", "si porfa", "si claro", "si me interesa", "si enviamelo",
+        "si pasamelo", "si mandalo", "quiero ver", "quiero el pdf", "quiero las frases",
+        "quiero las reglas", "las frases", "el pdf", "la guia", "las 7 reglas", "7 reglas",
+        "me interesa", "mandame el link", "pasame el link", "donde lo descargo", "descargar pdf",
+        "pdf gratis", "guia gratis", "libro gratis", "reglas frias", "frases de don klaus"
+    ]
+    gift_words = {
+        "si", "quiero", "klaus", "logo", "dale", "pasamelo", "pasame", "envialo", "enviame",
+        "claro", "porfa", "mandalo", "mandame", "donde", "reglas", "regla", "pdf", "guia",
+        "frase", "frases", "libro", "regalo", "gratis", "enlace", "link", "acceso",
+        "info", "informacion", "interesa", "interesado", "interesada", "verlo", "descargar"
+    }
+    
+    has_gift_phrase = any(gp in clean_msg for gp in gift_phrases)
+    has_gift_word = clean_msg in gift_words or bool(words & gift_words)
+    is_pure_optin = not is_sueldo_intent and not is_deuda_intent and (has_gift_phrase or (has_gift_word and len(words) <= 8))
+
+    if is_pure_optin:
+        # PASO A: Entrega 100% limpia del Regalo sin venta prematura (Generic Card)
         title = "7 Reglas Frías de Don Klaus"
         subtitle = "Guía práctica en PDF para ordenar tu dinero y frenar fugas (100% Gratis)."
         buttons = [
@@ -223,7 +244,7 @@ async def handle_dm_flow(target_id: str, sender_id: str, msg_text: str):
         return
 
     # 2. Caso: El usuario elige SUELDO (vía botón postback, quick reply o palabra directa)
-    if clean_msg in ["sueldo", "sueldos", "1", "opcion 1", "opción 1", "ordenar sueldo", "sueldo bajo control", "mi sueldo no rinde"] or (is_short_message and ("sueldo" in words or "sueldos" in words)):
+    if is_sueldo_intent:
         msg_part1 = "Te entiendo perfectamente. Cobras el sueldo y a los pocos días no sabes en qué se fue todo."
         await client.send_direct_message(target_id, sender_id, msg_part1)
         await asyncio.sleep(random.uniform(1.2, 2.0))
@@ -253,7 +274,7 @@ async def handle_dm_flow(target_id: str, sender_id: str, msg_text: str):
         return
 
     # 3. Caso: El usuario elige DEUDA (vía botón postback, quick reply o palabra directa)
-    if clean_msg in ["deuda", "deudas", "2", "opcion 2", "opción 2", "liquidar deudas", "deuda bajo control", "mis deudas ahogan"] or (is_short_message and ("deuda" in words or "deudas" in words)):
+    if is_deuda_intent:
         msg_part1 = "Pagar mínimos o abonar a ciegas es trabajar para regalarle intereses al banco. Los bancos apuestan a que no tengas un plan."
         await client.send_direct_message(target_id, sender_id, msg_part1)
         await asyncio.sleep(random.uniform(1.2, 2.0))
