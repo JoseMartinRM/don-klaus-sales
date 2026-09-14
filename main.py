@@ -232,6 +232,7 @@ async def handle_dm_flow(target_id: str, sender_id: str, msg_text: str):
         # PASO B: Mensaje conversacional de transición diagnóstica con botones rápidos (ManyChat style)
         await asyncio.sleep(random.uniform(2.0, 3.5))
         transition_text = (
+            "Aquí tienes tu acceso directo al PDF de las 7 Reglas Frías 👆 (Toca el botón de arriba para descargarlo gratis).\n\n"
             "Léelo pensando en esto: La mayoría cree que necesita ganar más, pero el 90% de las fugas ocurren por no tener un protocolo el día de pago.\n\n"
             "Cuando le eches un ojo, dime con sinceridad:\n"
             "¿Dónde sientes que se te escapa más dinero hoy? 👇"

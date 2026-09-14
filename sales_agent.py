@@ -273,40 +273,26 @@ REGLAS CRÍTICAS:
     def _generate_rule_based_fallback(self, message: str) -> str:
         msg = message.lower().strip()
 
-        if any(k in msg for k in ["si", "sí", "quiero", "klaus", "logo", "dale", "pasamelo", "pásamelo", "envialo", "envíalo", "claro", "porfa", "mandalo", "mándalo", "donde", "dónde", "frases", "frase", "pdf", "guia", "guía", "libro", "regalo", "gratis", "reglas", "regla"]):
-            return (
-                "Aquí tienes las Reglas Frías de Don Klaus:\n\n"
-                "👉 https://drive.google.com/file/d/1V11Z2g20b0a71QquFVUbgNrUsmogWK5q/view\n\n"
-                "No son frases para motivarte. Son reglas para cuando el dinero entra, sale y no tienes un sistema de control.\n\n"
-                "Léelas con esta pregunta en mente:\n"
-                "“¿Cuál de estas reglas estoy rompiendo hoy?”\n\n"
-                "Cuando las revises, dime dónde necesitas más control hoy:\n\n"
-                "💰 Escribe SUELDO — si el dinero entra y desaparece rápido\n"
-                "⚔️ Escribe DEUDA — si pagas pero no sabes qué liquidar primero"
-            )
-
         if any(k in msg for k in ["sueldo", "ingreso", "cobro", "gasto", "fuga", "desaparece", "gano", "alcanza", "opcion 1", "opción 1", "1"]):
             return (
-                "El problema no es cuánto ganas, sino que tu dinero entra sin una función asignada desde el día 1.\n\n"
-                "Para romper ese ciclo necesitas el Protocolo Día de Pago™ de 7 días: MIRA ➔ SEPARA ➔ DECIDE ➔ REVISA.\n\n"
-                "Empieza aquí:\n"
-                "🔥 *Sueldo Bajo Control™* (US$17 · pago único)\n"
+                "Cobras y a los pocos días el dinero desaparece. Eso ocurre porque entra sin una función asignada desde el día 1.\n\n"
+                "Para blindar tu próximo cobro necesitas el Protocolo Día de Pago™ de 7 días (Sueldo Bajo Control™ por US$17 · pago único de por vida y 7 días de garantía incondicional).\n\n"
                 "👉 https://klaus-order-rules.lovable.app/"
             )
 
         if any(k in msg for k in ["deuda", "deudas", "tarjeta", "prestamo", "debo", "banco", "interes", "opcion 2", "opción 2", "2"]):
             return (
-                "Si tienes varias deudas y estás pagando mínimos, estás disparando con los ojos cerrados.\n\n"
-                "El Protocolo C.E.R.O.™ te da el orden matemático para saber cuánto debes, cuánto atacar y qué deuda liquidar primero.\n\n"
-                "⚔️ *Deuda Bajo Control™* (US$55 · pago único · garantía 7 días)\n"
+                "Pagar mínimos a ciegas es trabajar para enriquecer al banco. Necesitas una ruta matemática exacta.\n\n"
+                "Con el Protocolo C.E.R.O.™ (Deuda Bajo Control™ por US$55 · pago único y 7 días de garantía total) sabes qué deuda liquidar primero paso a paso.\n\n"
                 "👉 https://zero-debt-protocol.lovable.app/"
             )
 
+        # Para cualquier afirmación, saludo o solicitud del PDF/regalo:
         return (
-            "Dime dónde está tu mayor fuga hoy:\n\n"
-            "💰 Escribe *SUELDO* — el dinero entra y desaparece\n"
-            "⚔️ Escribe *DEUDA* — pagas, pero no sabes qué atacar primero\n\n"
-            "O cuéntame tu caso y te digo exactamente qué paso dar."
+            "Aquí tienes el PDF de las 7 Reglas Frías de Don Klaus (100% gratis):\n\n"
+            "👉 https://drive.google.com/file/d/1V11Z2g20b0a71QquFVUbgNrUsmogWK5q/view\n\n"
+            "Léelo pensando en esto: el 90% de las fugas ocurren por no tener un protocolo el día de pago.\n\n"
+            "Dime con sinceridad: ¿dónde sientes hoy tu mayor fuga de dinero: en tu Sueldo o en tus Deudas?"
         )
 
 sales_agent = SalesAgent()
