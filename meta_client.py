@@ -196,12 +196,20 @@ class InstagramGraphClient:
                     add_activity_log("CARD_SENT", f"Tarjeta interactiva enviada a {recipient_id}: '{safe_title}'", f"User ID: {recipient_id}")
                     return data
                 else:
-                    # Fallback a texto normal si el formato falla
+                    # Fallback a texto normal con enlace si el formato de tarjeta falla en Meta
                     logger.warning(f"Fallback de tarjeta a texto para {recipient_id}: {data}")
-                    return await self.send_direct_message(target_id, recipient_id, f"**{safe_title}**\n\n{safe_subtitle}", access_token=token)
+                    first_url = buttons[0].get("url") if (buttons and len(buttons) > 0 and isinstance(buttons[0], dict) and buttons[0].get("url")) else ""
+                    fallback_text = f"**{safe_title}**\n\n{safe_subtitle}"
+                    if first_url:
+                        fallback_text += f"\n\n👉 {first_url}"
+                    return await self.send_direct_message(target_id, recipient_id, fallback_text, access_token=token)
         except Exception as e:
             logger.exception(f"Error enviando tarjeta a {recipient_id}: {e}")
-            return await self.send_direct_message(target_id, recipient_id, f"**{safe_title}**\n\n{safe_subtitle}", access_token=token)
+            first_url = buttons[0].get("url") if (buttons and len(buttons) > 0 and isinstance(buttons[0], dict) and buttons[0].get("url")) else ""
+            fallback_text = f"**{safe_title}**\n\n{safe_subtitle}"
+            if first_url:
+                fallback_text += f"\n\n👉 {first_url}"
+            return await self.send_direct_message(target_id, recipient_id, fallback_text, access_token=token)
 
     async def send_quick_replies(self, page_or_ig_id: str, recipient_id: str, text: str, quick_replies_list: list, access_token: Optional[str] = None) -> Dict[str, Any]:
         """
