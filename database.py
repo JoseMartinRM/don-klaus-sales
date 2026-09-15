@@ -89,6 +89,20 @@ def init_db():
     )
     """)
 
+    # Table: Automated Follow-ups (Alex Hormozi Nurture Sequence)
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS followups (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        instagram_user_id TEXT UNIQUE NOT NULL,
+        instagram_username TEXT,
+        stage INTEGER DEFAULT 0,
+        pdf_sent_at TEXT NOT NULL,
+        last_followup_at TEXT,
+        status TEXT DEFAULT 'PENDING',
+        created_at TEXT NOT NULL
+    )
+    """)
+
     # Insert default settings if empty
     default_settings = {
         "company_name": "Mi Negocio / Tienda",
@@ -388,6 +402,95 @@ def reset_stats():
     conn.execute("DELETE FROM leads")
     conn.execute("DELETE FROM activity_logs")
     conn.execute("DELETE FROM conversations")
-    conn.execute("DELETE FROM sqlite_sequence WHERE name IN ('leads', 'activity_logs', 'conversations')")
+    conn.execute("DELETE FROM followups")
+    conn.execute("DELETE FROM sqlite_sequence WHERE name IN ('leads', 'activity_logs', 'conversations', 'followups')")
     conn.commit()
     conn.close()
+
+# ----------------- AUTOMATED FOLLOW-UP SYSTEM (HORMOZI NURTURE) -----------------
+
+def register_pdf_lead(instagram_user_id: str, username: Optional[str] = None):
+    """
+    Registra que un usuario recibió el PDF gratuito para iniciar su secuencia de seguimiento.
+    Si ya existía, actualiza la fecha de entrega y reinicia la secuencia solo si estaba pendiente.
+    """
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    now_iso = datetime.now().isoformat()
+    cursor.execute("""
+    INSERT INTO followups (instagram_user_id, instagram_username, stage, pdf_sent_at, last_followup_at, status, created_at)
+    VALUES (?, ?, 0, ?, NULL, 'PENDING', ?)
+    ON CONFLICT(instagram_user_id) DO UPDATE SET
+        instagram_username = COALESCE(excluded.instagram_username, followups.instagram_username),
+        pdf_sent_at = excluded.pdf_sent_at,
+        stage = CASE WHEN followups.status = 'RESPONDED' THEN followups.stage ELSE 0 END,
+        status = CASE WHEN followups.status = 'RESPONDED' THEN followups.status ELSE 'PENDING' END
+    """, (instagram_user_id, username or "", now_iso, now_iso))
+    conn.commit()
+    conn.close()
+
+def mark_lead_responded(instagram_user_id: str):
+    """
+    Marca a un usuario como RESPONDIDO cuando interactúa en el chat, pausando seguimientos automáticos.
+    """
+    conn = get_db_connection()
+    conn.execute("""
+    UPDATE followups
+    SET status = 'RESPONDED'
+    WHERE instagram_user_id = ?
+    """, (instagram_user_id,))
+    conn.commit()
+    conn.close()
+
+def get_pending_followup_leads() -> List[Dict[str, Any]]:
+    """
+    Retorna leads pendientes de seguimiento según el tiempo transcurrido desde la entrega del PDF o último followup.
+    - Etapa 0 -> Etapa 1: Después de 2 horas (>= 7200 seg) de haber recibido el PDF.
+    - Etapa 1 -> Etapa 2: Después de 20 horas (>= 72000 seg) del último seguimiento.
+    """
+    conn = get_db_connection()
+    rows = conn.execute("""
+    SELECT id, instagram_user_id, instagram_username, stage, pdf_sent_at, last_followup_at, status
+    FROM followups
+    WHERE status = 'PENDING' AND stage IN (0, 1)
+    ORDER BY id ASC
+    """).fetchall()
+    conn.close()
+    
+    now = datetime.now()
+    pending = []
+    
+    for r in rows:
+        lead = dict(r)
+        stage = lead["stage"]
+        pdf_time = datetime.fromisoformat(lead["pdf_sent_at"])
+        last_time = datetime.fromisoformat(lead["last_followup_at"]) if lead["last_followup_at"] else pdf_time
+        
+        pdf_elapsed_seconds = (now - pdf_time).total_seconds()
+        last_elapsed_seconds = (now - last_time).total_seconds()
+        
+        # Etapa 0 (Pendiente Seguimiento 1): Más de 2 horas (7200s) y menos de 24 horas (86400s)
+        if stage == 0 and 7200 <= pdf_elapsed_seconds <= 86400:
+            lead["target_stage"] = 1
+            pending.append(lead)
+        # Etapa 1 (Pendiente Seguimiento 2): Más de 20 horas (72000s) desde el último seguimiento y menos de 48h
+        elif stage == 1 and 72000 <= last_elapsed_seconds <= 172800:
+            lead["target_stage"] = 2
+            pending.append(lead)
+            
+    return pending
+
+def update_lead_followup_stage(instagram_user_id: str, new_stage: int, status: str = 'PENDING'):
+    """
+    Actualiza la etapa alcanzada por el lead en la secuencia de seguimiento.
+    """
+    conn = get_db_connection()
+    now_iso = datetime.now().isoformat()
+    conn.execute("""
+    UPDATE followups
+    SET stage = ?, last_followup_at = ?, status = ?
+    WHERE instagram_user_id = ?
+    """, (new_stage, now_iso, status, instagram_user_id))
+    conn.commit()
+    conn.close()
+

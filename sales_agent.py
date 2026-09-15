@@ -300,4 +300,42 @@ REGLAS CRÍTICAS:
             "Dime con sinceridad: ¿dónde sientes hoy tu mayor fuga de dinero: en tu Sueldo o en tus Deudas?"
         )
 
+    def generate_followup_message(self, stage: int, username: Optional[str] = None) -> tuple[str, list]:
+        """
+        Genera los mensajes de seguimiento estratégico de Alex Hormozi:
+        - stage 1 (2 a 3 horas post-PDF): Check-in de alto valor y curiosidad sobre la Regla #3.
+        - stage 2 (20 a 24 horas post-PDF): Agitación del costo de inacción + Oferta de $17 con garantía total.
+        """
+        user_greet = f"@{username} " if username else ""
+        
+        if stage == 1:
+            text = (
+                f"Hola {user_greet}👋 ¿Pudiste descargar el PDF de las 7 Reglas Frías?\n\n"
+                "La Regla #3 (el freno de mano en el día de pago) es la que más le abre los ojos a la gente.\n\n"
+                "Dime con sinceridad: ¿dónde sientes que se te escapa más dinero cada mes? 👇"
+            )
+            quick_replies = [
+                {"content_type": "text", "title": "💰 Mi Sueldo no rinde", "payload": "SUELDO"},
+                {"content_type": "text", "title": "⚔️ Mis Deudas ahogan", "payload": "DEUDA"}
+            ]
+            return text, quick_replies
+            
+        elif stage == 2:
+            text = (
+                f"Hola {user_greet}⚔️ Te hago una pregunta rápida:\n\n"
+                "Si tuvieras un protocolo exacto de 5 minutos al día para que tu dinero no se evapore antes de fin de mes y blindar tu sueldo, ¿lo aplicarías?\n\n"
+                "Diseñé **Sueldo Bajo Control™** ($17 pago único con 7 días de garantía incondicional) para resolver exactamente eso:\n"
+                "👉 https://klaus-order-rules.lovable.app/\n\n"
+                "Si entras y en 7 días no tienes claridad matemática absoluta, pides la devolución y se te regresa el 100%. El riesgo es totalmente mío.\n\n"
+                "¿Te gustaría blindar tu próximo cobro o prefieres seguir adivinando a dónde se fue el dinero?"
+            )
+            quick_replies = [
+                {"content_type": "text", "title": "🔥 Ver Sueldo $17", "payload": "SUELDO"},
+                {"content_type": "text", "title": "⚔️ Ver Deuda $55", "payload": "DEUDA"}
+            ]
+            return text, quick_replies
+            
+        return "", []
+
 sales_agent = SalesAgent()
+

@@ -30,7 +30,8 @@ from database import (
     list_campaigns, get_campaign, create_campaign, update_campaign, delete_campaign,
     list_products, create_product, update_product, delete_product,
     record_lead, list_leads, add_activity_log, list_activity_logs,
-    get_stats, get_conversation_history
+    get_stats, get_conversation_history,
+    register_pdf_lead, mark_lead_responded, get_pending_followup_leads, update_lead_followup_stage
 )
 from meta_client import InstagramGraphClient
 from sales_agent import sales_agent
@@ -66,7 +67,9 @@ def clean_dedup_cache():
 async def lifespan(app: FastAPI):
     init_db()
     logger.info("Base de datos SQLite inicializada correctamente.")
+    followup_task = asyncio.create_task(followup_worker_loop())
     yield
+    followup_task.cancel()
 
 app = FastAPI(title="InstaFlow Sales AI - ManyChat Alternative", lifespan=lifespan)
 
@@ -184,6 +187,9 @@ async def handle_comment_flow(target_id: str, user_id: str, comment_id: str, com
         logger.warning(f"No se pudo enviar private message by comment en {comment_id}: {e}")
 
 async def handle_dm_flow(target_id: str, sender_id: str, msg_text: str):
+    # Pausar seguimientos automáticos si el usuario interactúa activamente en el chat
+    mark_lead_responded(sender_id)
+
     # Simular pausa de lectura y pensamiento humano (2.0 a 3.5 seg)
     await asyncio.sleep(random.uniform(2.0, 3.5))
     
@@ -217,6 +223,9 @@ async def handle_dm_flow(target_id: str, sender_id: str, msg_text: str):
     is_pure_optin = not is_sueldo_intent and not is_deuda_intent and (has_gift_phrase or (has_gift_word and len(words) <= 8))
 
     if is_pure_optin:
+        # Registrar lead para la secuencia de seguimiento inteligente (Hormozi Nurture)
+        register_pdf_lead(sender_id)
+
         # PASO A: Entrega 100% limpia del Regalo sin venta prematura (Generic Card)
         title = "7 Reglas Frías de Don Klaus"
         subtitle = "Guía práctica en PDF para ordenar tu dinero y frenar fugas (100% Gratis)."
@@ -615,6 +624,78 @@ async def api_update_settings(updates: Dict[str, str]):
     add_activity_log("SETTINGS_UPDATED", "Configuración del sistema actualizada.")
     return {"status": "updated"}
 
+# ----------------- SMART FOLLOW-UP ENGINE (ALEX HORMOZI CLOSING) -----------------
+
+async def process_followups_now() -> Dict[str, Any]:
+    """
+    Ejecuta una ronda de seguimiento automático para todos los leads elegibles.
+    """
+    pending_leads = get_pending_followup_leads()
+    if not pending_leads:
+        return {"processed": 0, "message": "No hay leads pendientes de seguimiento en este momento."}
+
+    client = get_graph_client()
+    settings = get_settings()
+    target_id = settings.get("instagram_account_id", config.INSTAGRAM_ACCOUNT_ID)
+    processed_count = 0
+
+    for lead in pending_leads:
+        user_id = lead["instagram_user_id"]
+        username = lead.get("instagram_username")
+        target_stage = lead.get("target_stage", 1)
+
+        text, quick_replies = sales_agent.generate_followup_message(target_stage, username)
+        if not text:
+            continue
+
+        try:
+            if quick_replies:
+                await client.send_quick_replies(target_id, user_id, text, quick_replies)
+            else:
+                await client.send_direct_message(target_id, user_id, text)
+
+            next_status = 'PENDING' if target_stage == 1 else 'COMPLETED'
+            update_lead_followup_stage(user_id, target_stage, status=next_status)
+            add_activity_log("FOLLOWUP_SENT", f"Seguimiento #{target_stage} enviado a {user_id}", f"User: @{username or user_id}")
+            logger.info(f"[Follow-Up Engine] Seguimiento #{target_stage} enviado con éxito a {user_id}")
+            processed_count += 1
+        except Exception as e:
+            logger.warning(f"[Follow-Up Engine] Error enviando seguimiento a {user_id}: {e}")
+            err_str = str(e).lower()
+            if "outside" in err_str or "policy" in err_str or "block" in err_str:
+                update_lead_followup_stage(user_id, target_stage, status='PAUSED')
+
+        # Pausa humana aleatoria entre envíos para proteger la cuenta
+        await asyncio.sleep(random.uniform(3.0, 5.5))
+
+    return {"processed": processed_count, "total_pending": len(pending_leads)}
+
+async def followup_worker_loop():
+    """
+    Loop en segundo plano que revisa cada 5 minutos y ejecuta seguimientos automáticos.
+    """
+    logger.info("Iniciando Motor de Seguimiento Inteligente (Smart Follow-Up Engine)...")
+    while True:
+        try:
+            await asyncio.sleep(300)
+            await process_followups_now()
+        except asyncio.CancelledError:
+            logger.info("Motor de Seguimiento Inteligente detenido.")
+            break
+        except Exception as e:
+            logger.exception(f"Error en loop de seguimiento inteligente: {e}")
+            await asyncio.sleep(60)
+
+@app.get("/api/followups/pending")
+async def api_get_pending_followups():
+    leads = get_pending_followup_leads()
+    return {"count": len(leads), "leads": leads}
+
+@app.post("/api/followups/run")
+async def api_run_followups():
+    res = await process_followups_now()
+    return res
+
 # ----------------- SERVE DASHBOARD UI & LEGAL -----------------
 
 @app.get("/privacy", response_class=HTMLResponse)
@@ -654,6 +735,7 @@ async def serve_index():
     if index_file.exists():
         return FileResponse(index_file)
     return HTMLResponse("<h1>InstaFlow Sales AI Backend Running</h1>")
+
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host=config.HOST, port=config.PORT, reload=False)
