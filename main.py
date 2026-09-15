@@ -241,10 +241,9 @@ async def handle_dm_flow(target_id: str, sender_id: str, msg_text: str):
         # PASO B: Mensaje conversacional de transición diagnóstica con botones rápidos (ManyChat style)
         await asyncio.sleep(random.uniform(2.0, 3.5))
         transition_text = (
-            "Aquí tienes tu acceso directo al PDF de las 7 Reglas Frías 👆 (Toca el botón de arriba para descargarlo gratis).\n\n"
+            "Listo, arriba te dejé el acceso a las 7 Reglas Frías 👆 (Toca el botón para descargarlo gratis).\n\n"
             "Léelo pensando en esto: La mayoría cree que necesita ganar más, pero el 90% de las fugas ocurren por no tener un protocolo el día de pago.\n\n"
-            "Cuando le eches un ojo, dime con sinceridad:\n"
-            "¿Dónde sientes que se te escapa más dinero hoy? 👇"
+            "En tu caso particular hoy, ¿dónde sientes que se te escapa más dinero o tranquilidad? 👇"
         )
         quick_replies = [
             {"content_type": "text", "title": "💰 Mi Sueldo no rinde", "payload": "SUELDO"},
@@ -255,13 +254,15 @@ async def handle_dm_flow(target_id: str, sender_id: str, msg_text: str):
 
     # 2. Caso: El usuario elige SUELDO (vía botón postback, quick reply o palabra directa)
     if is_sueldo_intent:
-        msg_part1 = "Te entiendo perfectamente. Cobras el sueldo y a los pocos días no sabes en qué se fue todo."
+        msg_part1 = "Te entiendo perfectamente. Cobras el sueldo con la ilusión de avanzar, pero a los pocos días no sabes a dónde se fue el dinero y toca volver a hacer malabares."
         await client.send_direct_message(target_id, sender_id, msg_part1)
-        await asyncio.sleep(random.uniform(1.2, 2.0))
+        await asyncio.sleep(random.uniform(1.5, 2.5))
         
         msg_part2 = (
-            "Más de 1,400 personas aplicaron el Protocolo Día de Pago™ de 7 días y rescataron entre $150 y $300 en fugas desde su primera quincena.\n\n"
-            "Por solo US$17 (pago único de por vida y 7 días de garantía total) tienes el método exacto en video y plantillas listas."
+            "Eso pasa porque el dinero entra sin una regla estricta de asignación desde el día 1.\n\n"
+            "Por eso creé **Sueldo Bajo Control™** con el Protocolo Día de Pago™ de 7 días (videos de 5 min y plantillas listas, sin Excels complicados).\n\n"
+            "Cuesta solo US$17 (pago único de por vida) y cuentas con 7 días de garantía incondicional: si no te da orden absoluto, se te devuelve el 100% de inmediato. El riesgo es 100% mío.\n\n"
+            "¿Quieres blindar tu próximo cobro desde hoy? 👇"
         )
         await client.send_direct_message(target_id, sender_id, msg_part2)
         await asyncio.sleep(random.uniform(1.2, 2.0))
@@ -285,13 +286,14 @@ async def handle_dm_flow(target_id: str, sender_id: str, msg_text: str):
 
     # 3. Caso: El usuario elige DEUDA (vía botón postback, quick reply o palabra directa)
     if is_deuda_intent:
-        msg_part1 = "Pagar mínimos o abonar a ciegas es trabajar para regalarle intereses al banco. Los bancos apuestan a que no tengas un plan."
+        msg_part1 = "Pagar mínimos o abonar a ciegas es la trampa perfecta de los bancos: trabajas todo el mes para pagarles intereses sin que la deuda baje jamás."
         await client.send_direct_message(target_id, sender_id, msg_part1)
-        await asyncio.sleep(random.uniform(1.2, 2.0))
+        await asyncio.sleep(random.uniform(1.5, 2.5))
 
         msg_part2 = (
-            "Con el Protocolo C.E.R.O.™ tienes el mapa matemático exacto para saber qué deuda liquidar primero paso a paso.\n\n"
-            "Por US$55 (pago único y 7 días de garantía incondicional) frenas el acoso bancario y recuperas tu tranquilidad."
+            "Para salir de ese ahogo necesitas un mapa matemático exacto. Con el Protocolo C.E.R.O.™ sabes qué deuda liquidar primero y cómo frenar los intereses.\n\n"
+            "Por solo US$55 (pago único de por vida y 7 días de garantía total) recuperas tu tranquilidad y sales de deudas paso a paso.\n\n"
+            "¿Te gustaría empezar a liquidar tus deudas hoy mismo? 👇"
         )
         await client.send_direct_message(target_id, sender_id, msg_part2)
         await asyncio.sleep(random.uniform(1.2, 2.0))
