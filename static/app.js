@@ -1,23 +1,51 @@
 // Global component definition for Alpine.js
 function instaFlowApp() {
     return {
-        currentTab: 'campaigns',
+        currentTab: 'crm',
         stats: {
-            active_campaigns: 1,
             total_leads_captured: 0,
             total_dms_sent: 0,
             total_public_replies: 0,
-            total_ai_replies: 0
+            total_ai_replies: 0,
+            total_purchases: 0,
+            total_revenue_usd: 0,
+            stage_counts: {
+                comento: 0,
+                respondio: 0,
+                recibio_pdf: 0,
+                vio_oferta: 0,
+                click_checkout: 0,
+                compro: 0,
+                perdido: 0
+            },
+            segments: {
+                sueldo: 0,
+                deuda: 0,
+                sin_definir: 0
+            },
+            ab_tests: {
+                dm1: {
+                    variant_a: { sent: 0, engaged: 0, rate: 0 },
+                    variant_b: { sent: 0, engaged: 0, rate: 0 }
+                },
+                followup3: {
+                    variant_a: { sent: 0, sales: 0, rate: 0 },
+                    variant_b: { sent: 0, sales: 0, rate: 0 }
+                }
+            },
+            objections: {},
+            top_reels: []
         },
         
         // Settings
         settings: {
-            company_name: 'Mi Negocio / Tienda',
-            company_description: 'Venta de productos y servicios con atención personalizada.',
-            sales_tone: 'amable, persuasivo, profesional y enfocado en cerrar la venta.',
+            company_name: 'Sistema Don Klaus',
+            company_description: 'Mentoría y protocolos financieros para blindar su sueldo y liquidar deudas de por vida.',
+            sales_tone: 'sobrio, formal (usted), empático pero implacable contra excusas, de alto valor y cierre consultivo.',
             gemini_api_key: '',
             meta_access_token: '',
-            meta_verify_token: 'instaflow_verify_token_secure_2026'
+            meta_verify_token: 'instaflow_verify_token_secure_2026',
+            hotmart_webhook_token: ''
         },
         isSavingSettings: false,
         
@@ -31,21 +59,28 @@ function instaFlowApp() {
         editingProduct: null,
         productModalOpen: false,
         
-        // Leads & Logs
+        // Leads & CRM Filters
         leads: [],
+        inactiveLeads: [],
+        leadFilterStage: '',
+        leadFilterSegment: '',
+        pendingFollowups: [],
+        isRunningFollowups: false,
         logs: [],
         
         // Simulator State
-        simUsername: 'maria_compradora',
+        simUsername: 'carlos_inversor',
         simComment: 'QUIERO',
-        simPostId: '',
+        simPostId: 'reel_101',
         simIsProcessing: false,
         simPostComments: [
-            { username: 'carlos_fit', text: '¡Excelente contenido! 🔥', time: 'hace 2h', isReply: false }
+            { username: 'carlos_inversor', text: 'Quiero las reglas de Don Klaus 🔥', time: 'hace 5m', isReply: false }
         ],
         simDmMessages: [],
         simUserChatMessage: '',
         simIsAiTyping: false,
+        simSegment: 'SUELDO',
+        simStage: 'comento',
         
         // Notification Toast
         toast: { show: false, message: '', type: 'success' },
@@ -59,24 +94,27 @@ function instaFlowApp() {
         metaStatus: { connected: false, account: null },
 
         async init() {
-            console.log("InstaFlow App Inicializada correctamente");
+            console.log("Don Klaus Sales CRM App Inicializada");
             await this.loadStats();
             await this.loadMetaStatus();
             await this.loadCampaigns();
             await this.loadProducts();
             await this.loadSettings();
             await this.loadLeads();
+            await this.loadInactiveLeads();
+            await this.loadPendingFollowups();
             await this.loadLogs();
 
-            // Refresh stats periodically
+            // Refresh periodic
             setInterval(() => {
                 this.loadStats();
                 this.loadMetaStatus();
-                if (this.currentTab === 'logs') {
-                    this.loadLogs();
+                if (this.currentTab === 'crm' || this.currentTab === 'logs') {
                     this.loadLeads();
+                    this.loadInactiveLeads();
+                    this.loadPendingFollowups();
                 }
-            }, 5000);
+            }, 6000);
         },
 
         async loadMetaStatus() {
@@ -90,7 +128,7 @@ function instaFlowApp() {
 
         async loadStats() {
             try {
-                const res = await fetch('/api/stats');
+                const res = await fetch('/api/metrics/funnel');
                 if (res.ok) this.stats = await res.json();
             } catch (e) {
                 console.error("Error loading stats:", e);
@@ -98,13 +136,14 @@ function instaFlowApp() {
         },
 
         async resetStats() {
-            if (!confirm('¿Deseas reiniciar todos los contadores, leads y registros a cero?')) return;
+            if (!confirm('¿Desea reiniciar todos los contadores, leads y registros a cero?')) return;
             try {
                 const res = await fetch('/api/stats/reset', { method: 'POST' });
                 if (res.ok) {
-                    this.showToast('Contadores y registros reiniciados a cero');
+                    this.showToast('Contadores y registros reiniciados');
                     await this.loadStats();
                     await this.loadLeads();
+                    await this.loadInactiveLeads();
                     await this.loadLogs();
                 }
             } catch (e) {
@@ -157,22 +196,18 @@ function instaFlowApp() {
         openNewCampaignModal() {
             this.editingCampaign = {
                 id: null,
-                name: 'Nueva Campaña de Ventas',
-                keywords: 'QUIERO, PRECIO, INFO, LINK',
+                name: 'Campaña Don Klaus - Diagnóstico y Conversión',
+                keywords: 'QUIERO, REGLAS, PDF, INFO, SUELDO, DEUDA',
                 match_mode: 'contains',
                 post_id_filter: '',
                 public_replies: [
-                    '¡Te envié toda la información por mensaje directo! 📩✨',
-                    '¡Listo! Revisa tu bandeja de entrada para ver el link 🚀'
+                    'Listo @username, le escribí por mensaje privado para que lo revise con calma. ⚔️',
+                    'Le dejé un mensaje directo, @username. Mírelo cuando tenga un minuto. 📩'
                 ],
                 dm_messages: [
                     {
-                        text: '¡Hola @username! 👋 Gracias por tu interés. Aquí tienes toda la información de nuestra promo exclusiva 🔥',
+                        text: 'Hola @username 👋 Vi su comentario. ¿Su mayor problema hoy es ordenar su Sueldo o liquidar Deudas?',
                         delay_seconds: 0
-                    },
-                    {
-                        text: '👉 Accede y compra directamente aquí:\nhttps://mitienda.com/oferta\n\n¿Tienes alguna duda sobre pagos o envíos? Escríbeme y te ayudo.',
-                        delay_seconds: 2
                     }
                 ],
                 is_active: 1,
@@ -188,28 +223,16 @@ function instaFlowApp() {
 
         addPublicReply() {
             if (!this.editingCampaign.public_replies) this.editingCampaign.public_replies = [];
-            this.editingCampaign.public_replies.push('¡Listo! Revisa tu mensaje directo 📩');
+            this.editingCampaign.public_replies.push('Listo @username, le envié un mensaje directo al privado. 📩');
         },
 
         removePublicReply(index) {
             this.editingCampaign.public_replies.splice(index, 1);
         },
 
-        addDmStep() {
-            if (!this.editingCampaign.dm_messages) this.editingCampaign.dm_messages = [];
-            this.editingCampaign.dm_messages.push({
-                text: 'Nuevo mensaje con más detalles o enlace de compra...',
-                delay_seconds: 2
-            });
-        },
-
-        removeDmStep(index) {
-            this.editingCampaign.dm_messages.splice(index, 1);
-        },
-
         async saveCampaign() {
             if (!this.editingCampaign.name || !this.editingCampaign.keywords) {
-                this.showToast('Por favor completa el nombre y las palabras clave', 'error');
+                this.showToast('Nombre y palabras clave son obligatorios', 'error');
                 return;
             }
 
@@ -224,7 +247,7 @@ function instaFlowApp() {
                     body: JSON.stringify(this.editingCampaign)
                 });
                 if (res.ok) {
-                    this.showToast(isNew ? 'Campaña creada exitosamente' : 'Campaña actualizada');
+                    this.showToast(isNew ? 'Campaña creada' : 'Campaña actualizada');
                     this.campaignModalOpen = false;
                     await this.loadCampaigns();
                     await this.loadStats();
@@ -242,7 +265,7 @@ function instaFlowApp() {
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(camp)
                 });
-                this.showToast(`Campaña ${camp.is_active ? 'activada' : 'desactivada'}`);
+                this.showToast(`Campaña ${camp.is_active ? 'activada' : 'pausada'}`);
                 await this.loadStats();
             } catch (e) {
                 this.showToast('Error al actualizar estado', 'error');
@@ -250,7 +273,7 @@ function instaFlowApp() {
         },
 
         async deleteCampaign(campId) {
-            if (!confirm('¿Estás seguro de eliminar esta campaña?')) return;
+            if (!confirm('¿Eliminar esta campaña?')) return;
             try {
                 const res = await fetch(`/api/campaigns/${campId}`, { method: 'DELETE' });
                 if (res.ok) {
@@ -259,7 +282,7 @@ function instaFlowApp() {
                     await this.loadStats();
                 }
             } catch (e) {
-                this.showToast('Error al eliminar campaña', 'error');
+                this.showToast('Error al eliminar', 'error');
             }
         },
 
@@ -294,7 +317,7 @@ function instaFlowApp() {
 
         async saveProduct() {
             if (!this.editingProduct.name || !this.editingProduct.price || !this.editingProduct.payment_link) {
-                this.showToast('Nombre, precio y enlace de compra son obligatorios', 'error');
+                this.showToast('Nombre, precio y link de compra son obligatorios', 'error');
                 return;
             }
 
@@ -325,23 +348,63 @@ function instaFlowApp() {
                 this.showToast('Producto eliminado');
                 await this.loadProducts();
             } catch (e) {
-                this.showToast('Error al eliminar producto', 'error');
+                this.showToast('Error al eliminar', 'error');
             }
         },
 
-        // --- LEADS & LOGS ---
+        // --- CRM LEADS & 24H WINDOW LOGIC ---
         async loadLeads() {
             try {
-                const res = await fetch('/api/leads');
+                let url = '/api/crm/leads?limit=200';
+                if (this.leadFilterStage) url += `&stage=${this.leadFilterStage}`;
+                if (this.leadFilterSegment) url += `&segment=${this.leadFilterSegment}`;
+                const res = await fetch(url);
                 if (res.ok) this.leads = await res.json();
             } catch (e) {
                 console.error("Error loading leads:", e);
             }
         },
 
+        async loadInactiveLeads() {
+            try {
+                const res = await fetch('/api/crm/7day-leads?limit=50');
+                if (res.ok) this.inactiveLeads = await res.json();
+            } catch (e) {
+                console.error("Error loading inactive leads:", e);
+            }
+        },
+
+        async loadPendingFollowups() {
+            try {
+                const res = await fetch('/api/followups/pending');
+                if (res.ok) {
+                    const data = await res.json();
+                    this.pendingFollowups = data.leads || [];
+                }
+            } catch (e) {
+                console.error("Error loading pending followups:", e);
+            }
+        },
+
+        async triggerFollowupsNow() {
+            this.isRunningFollowups = true;
+            try {
+                const res = await fetch('/api/followups/run', { method: 'POST' });
+                const data = await res.json();
+                this.showToast(`Seguimientos 24h procesados: ${data.processed} enviados`);
+                await this.loadPendingFollowups();
+                await this.loadStats();
+                await this.loadLeads();
+            } catch (e) {
+                this.showToast('Error ejecutando seguimientos', 'error');
+            } finally {
+                this.isRunningFollowups = false;
+            }
+        },
+
         async loadLogs() {
             try {
-                const res = await fetch('/api/logs');
+                const res = await fetch('/api/logs?limit=150');
                 if (res.ok) this.logs = await res.json();
             } catch (e) {
                 console.error("Error loading logs:", e);
@@ -355,7 +418,6 @@ function instaFlowApp() {
             const userText = this.simComment.trim();
             const username = this.simUsername.trim() || 'cliente';
 
-            // Add user's comment to feed
             this.simPostComments.push({
                 username,
                 text: userText,
@@ -373,44 +435,37 @@ function instaFlowApp() {
                     body: JSON.stringify({
                         username,
                         comment_text: userText,
-                        post_id: this.simPostId || 'post_default'
+                        post_id: this.simPostId || 'reel_101'
                     })
                 });
                 const data = await res.json();
 
                 if (data.matched) {
-                    // 1. Simulate public comment response
+                    // 1. Respuesta pública
                     setTimeout(() => {
                         this.simPostComments.push({
-                            username: 'mitienda_oficial',
+                            username: 'sistemadonklaus',
                             text: data.public_reply,
                             time: 'Ahora',
                             isReply: true
                         });
-                    }, 600);
+                    }, 500);
 
-                    // 2. Clear old DMs and play the new DM sequence
-                    this.simDmMessages = [];
-                    let accumulatedDelay = 1000;
+                    // 2. DM 1 Diagnóstico
+                    setTimeout(() => {
+                        this.simDmMessages = [{
+                            sender: 'bot',
+                            text: data.dm_text,
+                            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                            quick_replies: data.quick_replies
+                        }];
+                        this.$nextTick(() => {
+                            const chatBox = document.getElementById('sim-dm-chatbox');
+                            if (chatBox) chatBox.scrollTop = chatBox.scrollHeight;
+                        });
+                    }, 1200);
 
-                    data.dm_messages.forEach((step, idx) => {
-                        const stepDelay = Math.max(step.delay_seconds * 1000, 800);
-                        accumulatedDelay += stepDelay;
-
-                        setTimeout(() => {
-                            this.simDmMessages.push({
-                                sender: 'bot',
-                                text: step.text,
-                                time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-                            });
-                            this.$nextTick(() => {
-                                const chatBox = document.getElementById('sim-dm-chatbox');
-                                if (chatBox) chatBox.scrollTop = chatBox.scrollHeight;
-                            });
-                        }, accumulatedDelay);
-                    });
-
-                    this.showToast(`¡Campaña '${data.campaign_name}' activada! Secuencia enviada.`);
+                    this.showToast(`¡Diagnóstico DM 1 (Var ${data.dm_variant}) activado!`);
                 } else {
                     this.showToast(data.message, 'warning');
                 }
@@ -421,13 +476,12 @@ function instaFlowApp() {
             }
         },
 
-        async sendSimUserChatMessage() {
-            if (!this.simUserChatMessage || !this.simUserChatMessage.trim()) return;
+        async sendSimUserChatMessage(customText = null) {
+            const text = (customText || this.simUserChatMessage || '').trim();
+            if (!text) return;
 
-            const text = this.simUserChatMessage.trim();
             this.simUserChatMessage = '';
 
-            // Add user message to DM
             this.simDmMessages.push({
                 sender: 'user',
                 text,
@@ -447,7 +501,9 @@ function instaFlowApp() {
                     body: JSON.stringify({
                         user_id: 'sim_user_test',
                         username: this.simUsername || 'cliente',
-                        message_text: text
+                        message_text: text,
+                        segment: this.simSegment,
+                        stage: this.simStage
                     })
                 });
                 const data = await res.json();
@@ -457,13 +513,14 @@ function instaFlowApp() {
                     this.simDmMessages.push({
                         sender: 'bot',
                         text: data.reply,
-                        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                        escalation: data.escalation
                     });
                     this.$nextTick(() => {
                         const chatBox = document.getElementById('sim-dm-chatbox');
                         if (chatBox) chatBox.scrollTop = chatBox.scrollHeight;
                     });
-                }, 800);
+                }, 600);
 
             } catch (e) {
                 this.simIsAiTyping = false;
@@ -480,11 +537,21 @@ function instaFlowApp() {
             if (!isoString) return '-';
             const d = new Date(isoString);
             return d.toLocaleDateString() + ' ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        },
+
+        getTimeRemaining(lastIso) {
+            if (!lastIso) return 'Expirado';
+            const last = new Date(lastIso);
+            const now = new Date();
+            const diffMs = (last.getTime() + (24 * 60 * 60 * 1000)) - now.getTime();
+            if (diffMs <= 0) return 'Ventana 24h Cerrada 🛑';
+            const hours = Math.floor(diffMs / (1000 * 60 * 60));
+            const mins = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+            return `Quedan ${hours}h ${mins}m ⏱️`;
         }
     };
 }
 
-// Make it available globally for Alpine
 window.instaFlowApp = instaFlowApp;
 
 if (window.Alpine) {
@@ -494,3 +561,4 @@ if (window.Alpine) {
         Alpine.data('instaFlowApp', instaFlowApp);
     });
 }
+

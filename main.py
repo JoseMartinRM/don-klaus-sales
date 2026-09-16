@@ -20,7 +20,7 @@ from typing import Dict, Any, List, Optional, Set
 
 import uvicorn
 from fastapi import FastAPI, Request, Response, BackgroundTasks, HTTPException, Query
-from fastapi.responses import HTMLResponse, FileResponse, JSONResponse
+from fastapi.responses import HTMLResponse, FileResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
@@ -31,6 +31,11 @@ from database import (
     list_products, create_product, update_product, delete_product,
     record_lead, list_leads, add_activity_log, list_activity_logs,
     get_stats, get_conversation_history,
+    upsert_lead, get_lead_by_user_id, update_lead_interaction, update_lead_stage,
+    set_lead_segment, record_checkout_click, record_hotmart_purchase, flag_human_escalation,
+    get_pending_window_followups, update_lead_followup_sent, get_7day_inactive_leads,
+    get_crm_metrics_funnel,
+    # Legacy fallbacks
     register_pdf_lead, mark_lead_responded, get_pending_followup_leads, update_lead_followup_stage
 )
 from meta_client import InstagramGraphClient
@@ -43,11 +48,23 @@ logger = logging.getLogger("instaflow_server")
 PROCESSED_COMMENTS: Dict[str, float] = {}
 PROCESSED_MESSAGES: Dict[str, float] = {}
 
+# Rate Limiter: Track DMs sent in last 3600 seconds (< 200 DMs/hour limit)
+SENT_DM_TIMESTAMPS: List[float] = []
+
+def record_dm_sent():
+    global SENT_DM_TIMESTAMPS
+    now = time.time()
+    SENT_DM_TIMESTAMPS.append(now)
+    # Clean timestamps older than 1 hour
+    SENT_DM_TIMESTAMPS = [t for t in SENT_DM_TIMESTAMPS if now - t < 3600]
+
+def is_rate_limited() -> bool:
+    global SENT_DM_TIMESTAMPS
+    now = time.time()
+    SENT_DM_TIMESTAMPS = [t for t in SENT_DM_TIMESTAMPS if now - t < 3600]
+    return len(SENT_DM_TIMESTAMPS) >= 195  # Safety threshold under 200 DMs/hr
+
 def normalize_text(text: str) -> str:
-    """
-    Normaliza texto eliminando acentos, tildes y pasando a minúsculas.
-    Ejemplo: 'Guía' -> 'guia', 'FRÍAS' -> 'frias', 'Información' -> 'informacion'
-    """
     if not text:
         return ""
     text_norm = unicodedata.normalize('NFKD', str(text))
@@ -66,12 +83,12 @@ def clean_dedup_cache():
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
-    logger.info("Base de datos SQLite inicializada correctamente.")
+    logger.info("Base de datos SQLite CRM inicializada correctamente con cumplimiento Meta 24h.")
     followup_task = asyncio.create_task(followup_worker_loop())
     yield
     followup_task.cancel()
 
-app = FastAPI(title="InstaFlow Sales AI - ManyChat Alternative", lifespan=lifespan)
+app = FastAPI(title="Don Klaus Sales AI - Meta 24h Instagram Closer", lifespan=lifespan)
 
 # Mount static files
 static_dir = BASE_DIR / "static"
@@ -105,47 +122,10 @@ async def verify_webhook(
     return Response(content="Verification failed", status_code=403)
 
 
-def resolve_spintax(text: str) -> str:
-    """
-    Convierte sintaxis de variación tipo {opcion1|opcion2|opcion3}
-    en una opción seleccionada aleatoriamente para evitar huellas hash repetitivas de spam.
-    """
-    if not text:
-        return ""
-    pattern = re.compile(r'\{([^{}]+)\}')
-    while pattern.search(text):
-        text = pattern.sub(lambda m: random.choice(m.group(1).split('|')), text)
-    return text
-
-async def execute_dm_sequence(page_id: str, recipient_id: str, comment_id: Optional[str], dm_steps: List[Dict[str, Any]], username: str):
-    client = get_graph_client()
-    for idx, step in enumerate(dm_steps):
-        raw_text = step.get("text", "")
-        delay = int(step.get("delay_seconds", 0))
-
-        # 1. Resolver spintax dinámico y nombres
-        text = resolve_spintax(raw_text)
-        text = text.replace("@username", f"@{username}").replace("{{username}}", username)
-
-        # 2. Human Jitter (Retardo con variación humana aleatoria)
-        if delay > 0:
-            jitter = random.uniform(0.8, 3.5)
-            await asyncio.sleep(delay + jitter)
-        elif idx == 0:
-            # Pausa natural antes del primer contacto (3 a 8 seg)
-            await asyncio.sleep(random.uniform(3.0, 8.0))
-
-        if idx == 0 and comment_id:
-            await client.send_private_message_by_comment(page_id, comment_id, text)
-        else:
-            await client.send_direct_message(page_id, recipient_id, text)
-
-
 def match_keyword(comment_text: str, keywords_str: str, match_mode: str) -> bool:
     if not comment_text or not keywords_str:
         return False
 
-    # Normalizar eliminando tildes y a minúsculas
     comment_clean = normalize_text(comment_text)
     keywords = [normalize_text(k) for k in keywords_str.split(",") if k.strip()]
 
@@ -167,112 +147,143 @@ def match_keyword(comment_text: str, keywords_str: str, match_mode: str) -> bool
     # Default 'contains'
     return any(k in comment_clean for k in keywords)
 
+# ----------------- CORE CONVERSATIONAL SALES FLOW -----------------
 
+async def handle_comment_flow(target_id: str, user_id: str, comment_id: str, comment_text: str, username: str, matched_campaign: Dict[str, Any], reel_id: str = ""):
+    """
+    NUEVO FLUJO: Diagnóstico ANTES del PDF
+    1. Publica respuesta pública (1 de 5 versiones rotativas formales).
+    2. Registra el lead en CRM asignando variante A/B para DM 1 (50/50).
+    3. Envía DM 1 con pregunta de diagnóstico y botones [💰 Ordenar Sueldo] / [⚔️ Liquidar Deudas] SIN ENLACES.
+    """
+    if is_rate_limited():
+        logger.warning("[Rate Limiter] Límite de 200 DMs/hora alcanzado. Pausando respuesta.")
+        return
 
-async def handle_comment_flow(target_id: str, user_id: str, comment_id: str, comment_text: str, username: str, matched_campaign: Dict[str, Any]):
-    # 1. Generar respuesta pública personalizada con IA Don Klaus
+    client = get_graph_client()
+
+    # 1. Publicar respuesta pública formal
     public_reply = await sales_agent.generate_comment_reply(username, comment_text)
-    await asyncio.sleep(random.uniform(3.0, 7.5))
+    await asyncio.sleep(random.uniform(2.5, 5.0))
     try:
-        await get_graph_client().reply_to_comment(comment_id, public_reply)
+        await client.reply_to_comment(comment_id, public_reply)
     except Exception as e:
         logger.warning(f"No se pudo publicar comentario público en {comment_id}: {e}")
 
-    # 2. Generar Opt-In DM ultra-humano y SIN ENLACES con IA
-    optin_dm = await sales_agent.generate_optin_dm(username, comment_text)
-    await asyncio.sleep(random.uniform(4.0, 9.0))
+    # 2. Prueba A/B para DM 1 (50/50)
+    variant = random.choice(["A", "B"])
+
+    # 3. Registrar Lead en CRM
+    lead = upsert_lead(
+        user_id=user_id,
+        username=username,
+        keyword=comment_text,
+        reel_id=reel_id,
+        variant_dm1=variant,
+        campaign_id=matched_campaign.get("id"),
+        comment_id=comment_id,
+        comment_text=comment_text
+    )
+
+    # 4. Generar texto y botones rápidos de diagnóstico
+    dm_text, quick_replies = sales_agent.generate_optin_dm_variant(username, variant)
+    await asyncio.sleep(random.uniform(3.0, 6.0))
+
     try:
-        await get_graph_client().send_private_message_by_comment(target_id, comment_id, optin_dm)
+        if quick_replies:
+            await client.send_quick_replies(target_id, user_id, dm_text, quick_replies)
+        else:
+            await client.send_private_message_by_comment(target_id, comment_id, dm_text)
+        record_dm_sent()
+        add_activity_log("DM_SENT", f"DM 1 Diagnóstico (Var {variant}) enviado a @{username}: '{dm_text[:60]}...'", f"User: @{username}")
     except Exception as e:
-        logger.warning(f"No se pudo enviar private message by comment en {comment_id}: {e}")
+        logger.warning(f"Fallo al enviar DM 1 a {user_id}: {e}")
+        try:
+            await client.send_private_message_by_comment(target_id, comment_id, dm_text)
+            record_dm_sent()
+        except Exception:
+            pass
 
 async def handle_dm_flow(target_id: str, sender_id: str, msg_text: str):
-    # Pausar seguimientos automáticos si el usuario interactúa activamente en el chat
-    mark_lead_responded(sender_id)
+    """
+    Manejador central de DMs entrantes con cumplimiento estricto de la ventana de 24h de Meta.
+    """
+    if is_rate_limited():
+        logger.warning("[Rate Limiter] Límite de 200 DMs/hora alcanzado.")
+        return
 
-    # Simular pausa de lectura y pensamiento humano (2.0 a 3.5 seg)
-    await asyncio.sleep(random.uniform(2.0, 3.5))
-    
+    client = get_graph_client()
     clean_msg = normalize_text(msg_text)
     words = set(re.findall(r'\w+', clean_msg))
-    client = get_graph_client()
 
-    is_short_message = len(clean_msg.split()) <= 4
-    
-    # Detección de Sueldo y Deuda
-    is_sueldo_intent = clean_msg in ["sueldo", "sueldos", "1", "opcion 1", "opción 1", "ordenar sueldo", "sueldo bajo control", "mi sueldo no rinde"] or (is_short_message and ("sueldo" in words or "sueldos" in words))
-    is_deuda_intent = clean_msg in ["deuda", "deudas", "2", "opcion 2", "opción 2", "liquidar deudas", "deuda bajo control", "mis deudas ahogan"] or (is_short_message and ("deuda" in words or "deudas" in words))
+    # Obtener o crear lead en CRM
+    lead = get_lead_by_user_id(sender_id)
+    username = lead.get("instagram_username", "amigo") if lead else "amigo"
+    current_segment = lead.get("segment", "sin definir") if lead else "sin definir"
+    current_stage = lead.get("stage", "comento") if lead else "comento"
+    reel_id = lead.get("source_reel_id", "") if lead else ""
 
-    # 1. Caso: El usuario pide la guía / confirma el Opt-In (QUIERO, SI, SI QUIERO, FRASES, PDF, REGLAS, LOGO, etc.)
-    gift_phrases = [
-        "si quiero", "si por favor", "si porfa", "si claro", "si me interesa", "si enviamelo",
-        "si pasamelo", "si mandalo", "quiero ver", "quiero el pdf", "quiero las frases",
-        "quiero las reglas", "las frases", "el pdf", "la guia", "las 7 reglas", "7 reglas",
-        "me interesa", "mandame el link", "pasame el link", "donde lo descargo", "descargar pdf",
-        "pdf gratis", "guia gratis", "libro gratis", "reglas frias", "frases de don klaus"
-    ]
-    gift_words = {
-        "si", "quiero", "klaus", "logo", "dale", "pasamelo", "pasame", "envialo", "enviame",
-        "claro", "porfa", "mandalo", "mandame", "donde", "reglas", "regla", "pdf", "guia",
-        "frase", "frases", "libro", "regalo", "gratis", "enlace", "link", "acceso",
-        "info", "informacion", "interesa", "interesado", "interesada", "verlo", "descargar"
-    }
-    
-    has_gift_phrase = any(gp in clean_msg for gp in gift_phrases)
-    has_gift_word = clean_msg in gift_words or bool(words & gift_words)
-    is_pure_optin = not is_sueldo_intent and not is_deuda_intent and (has_gift_phrase or (has_gift_word and len(words) <= 8))
+    # Actualizar última interacción real del lead
+    update_lead_interaction(sender_id, is_real_interaction=True, new_stage="respondio")
 
-    if is_pure_optin:
-        # Registrar lead para la secuencia de seguimiento inteligente (Hormozi Nurture)
-        register_pdf_lead(sender_id)
+    # Detectar posibles objeciones
+    detected_objection = sales_agent.detect_objection(msg_text)
+    if detected_objection:
+        update_lead_interaction(sender_id, is_real_interaction=True, objection=detected_objection)
 
-        # PASO A: Entrega 100% limpia del Regalo sin venta prematura (Generic Card)
-        title = "7 Reglas Frías de Don Klaus"
-        subtitle = "Guía práctica en PDF para ordenar tu dinero y frenar fugas (100% Gratis)."
-        buttons = [
+    # Pausa humana aleatoria
+    await asyncio.sleep(random.uniform(2.0, 4.0))
+
+    # ----------------- INTENT CLASSIFICATION -----------------
+    is_short_msg = len(clean_msg.split()) <= 4
+
+    is_sueldo_intent = clean_msg in [
+        "sueldo", "sueldos", "1", "opcion 1", "opción 1", "ordenar sueldo",
+        "sueldo bajo control", "en mi sueldo", "mi sueldo", "el sueldo"
+    ] or (is_short_msg and ("sueldo" in words or "sueldos" in words or "ordenar" in words))
+
+    is_deuda_intent = clean_msg in [
+        "deuda", "deudas", "2", "opcion 2", "opción 2", "liquidar deudas",
+        "deuda bajo control", "en mis deudas", "mis deudas", "las deudas"
+    ] or (is_short_msg and ("deuda" in words or "deudas" in words or "liquidar" in words))
+
+    is_direct_buy_intent = any(k in clean_msg for k in ["comprar", "precio", "link", "enlace", "adquirir", "cuanto cuesta", "cuánto cuesta"])
+
+    # 1. CASO: SEGMENTO SUELDO (Entrega de PDF + Oferta Sueldo $17 + Pregunta de compromiso Regla 1-7)
+    if is_sueldo_intent:
+        set_lead_segment(sender_id, "SUELDO")
+        update_lead_stage(sender_id, "vio_oferta")
+
+        # PASO A: Entrega del PDF en Tarjeta Limpia
+        pdf_title = "7 Reglas Frías de Don Klaus"
+        pdf_subtitle = "Guía práctica en PDF para blindar sus finanzas y frenar fugas (100% Gratis)."
+        pdf_buttons = [
             {
                 "type": "web_url",
                 "url": "https://drive.google.com/file/d/1V11Z2g20b0a71QquFVUbgNrUsmogWK5q/view",
                 "title": "📥 Descargar PDF"
             }
         ]
-        await client.send_generic_card(target_id, sender_id, title=title, subtitle=subtitle, buttons=buttons)
-        
-        # PASO B: Mensaje conversacional de transición diagnóstica con botones rápidos (ManyChat style)
+        await client.send_generic_card(target_id, sender_id, title=pdf_title, subtitle=pdf_subtitle, buttons=pdf_buttons)
+        record_dm_sent()
         await asyncio.sleep(random.uniform(2.0, 3.5))
-        transition_text = (
-            "Listo, arriba te dejé el acceso a las 7 Reglas Frías 👆 (Toca el botón para descargarlo gratis).\n\n"
-            "Léelo pensando en esto: La mayoría cree que necesita ganar más, pero el 90% de las fugas ocurren por no tener un protocolo el día de pago.\n\n"
-            "En tu caso particular hoy, ¿dónde sientes que se te escapa más dinero o tranquilidad? 👇"
-        )
-        quick_replies = [
-            {"content_type": "text", "title": "💰 Mi Sueldo no rinde", "payload": "SUELDO"},
-            {"content_type": "text", "title": "⚔️ Mis Deudas ahogan", "payload": "DEUDA"}
-        ]
-        await client.send_quick_replies(target_id, sender_id, transition_text, quick_replies)
-        return
 
-    # 2. Caso: El usuario elige SUELDO (vía botón postback, quick reply o palabra directa)
-    if is_sueldo_intent:
-        msg_part1 = "Te entiendo perfectamente. Cobras el sueldo con la ilusión de avanzar, pero a los pocos días no sabes a dónde se fue el dinero y toca volver a hacer malabares."
-        await client.send_direct_message(target_id, sender_id, msg_part1)
-        await asyncio.sleep(random.uniform(1.5, 2.5))
-        
-        msg_part2 = (
-            "Eso pasa porque el dinero entra sin una regla estricta de asignación desde el día 1.\n\n"
-            "Por eso creé **Sueldo Bajo Control™** con el Protocolo Día de Pago™ de 7 días (videos de 5 min y plantillas listas, sin Excels complicados).\n\n"
-            "Cuesta solo US$17 (pago único de por vida) y cuentas con 7 días de garantía incondicional: si no te da orden absoluto, se te devuelve el 100% de inmediato. El riesgo es 100% mío.\n\n"
-            "¿Quieres blindar tu próximo cobro desde hoy? 👇"
+        # PASO B: Oferta de Sueldo Bajo Control™ ($17)
+        sueldo_text = (
+            "Cobrar con la ilusión de avanzar y a la semana no saber a dónde se fue el dinero ocurre por entrar sin un protocolo estricto el día de cobro.\n\n"
+            "Por eso creé **Sueldo Bajo Control™** con el Protocolo Día de Pago™ de 7 días (videos de 5 min y plantillas listas, cero Excels aburridos).\n\n"
+            "Cuesta solo US$17 (pago único de por vida) y dispone de 7 días de garantía incondicional: si no le da orden absoluto, le devuelvo cada centavo. El riesgo es totalmente mío."
         )
-        await client.send_direct_message(target_id, sender_id, msg_part2)
-        await asyncio.sleep(random.uniform(1.2, 2.0))
-        
-        title = "Sueldo Bajo Control™ ($17)"
-        subtitle = "Protocolo Día de Pago™ en 7 días para blindar tu dinero. Garantía 7 días."
-        buttons = [
+        await client.send_direct_message(target_id, sender_id, sueldo_text)
+        record_dm_sent()
+        await asyncio.sleep(random.uniform(1.5, 2.5))
+
+        # Tarjeta de Compra Sueldo
+        checkout_sueldo_url = f"https://klaus-order-rules.lovable.app/?src=ig_bot_sueldo_{reel_id or 'direct'}"
+        sueldo_card_buttons = [
             {
                 "type": "web_url",
-                "url": "https://klaus-order-rules.lovable.app/",
+                "url": checkout_sueldo_url,
                 "title": "🔥 Adquirir ($17)"
             },
             {
@@ -281,29 +292,60 @@ async def handle_dm_flow(target_id: str, sender_id: str, msg_text: str):
                 "payload": "DEUDA"
             }
         ]
-        await client.send_generic_card(target_id, sender_id, title=title, subtitle=subtitle, buttons=buttons)
+        await client.send_generic_card(
+            target_id, sender_id,
+            title="Sueldo Bajo Control™ ($17)",
+            subtitle="Protocolo Día de Pago™ en 7 días. Garantía incondicional de 7 días.",
+            buttons=sueldo_card_buttons
+        )
+        record_dm_sent()
+        await asyncio.sleep(random.uniform(2.0, 3.5))
+
+        # PASO C: Pregunta de compromiso que renueva la ventana de 24h
+        commitment_text = (
+            "Acabo de entregarle las 7 Reglas Frías arriba 👆.\n\n"
+            "Léalas hoy mismo y dígame con sinceridad:\n"
+            "¿Cuál de las 7 reglas siente que está rompiendo en este momento? (Dígame el número del 1 al 7) 👇"
+        )
+        await client.send_direct_message(target_id, sender_id, commitment_text)
+        record_dm_sent()
         return
 
-    # 3. Caso: El usuario elige DEUDA (vía botón postback, quick reply o palabra directa)
+    # 2. CASO: SEGMENTO DEUDA (Entrega de PDF + Oferta Deuda $55 + Pregunta de compromiso Regla 1-7)
     if is_deuda_intent:
-        msg_part1 = "Pagar mínimos o abonar a ciegas es la trampa perfecta de los bancos: trabajas todo el mes para pagarles intereses sin que la deuda baje jamás."
-        await client.send_direct_message(target_id, sender_id, msg_part1)
-        await asyncio.sleep(random.uniform(1.5, 2.5))
+        set_lead_segment(sender_id, "DEUDA")
+        update_lead_stage(sender_id, "vio_oferta")
 
-        msg_part2 = (
-            "Para salir de ese ahogo necesitas un mapa matemático exacto. Con el Protocolo C.E.R.O.™ sabes qué deuda liquidar primero y cómo frenar los intereses.\n\n"
-            "Por solo US$55 (pago único de por vida y 7 días de garantía total) recuperas tu tranquilidad y sales de deudas paso a paso.\n\n"
-            "¿Te gustaría empezar a liquidar tus deudas hoy mismo? 👇"
-        )
-        await client.send_direct_message(target_id, sender_id, msg_part2)
-        await asyncio.sleep(random.uniform(1.2, 2.0))
-
-        title = "Deuda Bajo Control™ ($55)"
-        subtitle = "Protocolo C.E.R.O.™ para liquidar deudas sin pagar a ciegas. Garantía 7 días."
-        buttons = [
+        # PASO A: Entrega del PDF en Tarjeta Limpia
+        pdf_title = "7 Reglas Frías de Don Klaus"
+        pdf_subtitle = "Guía práctica en PDF para blindar sus finanzas y frenar fugas (100% Gratis)."
+        pdf_buttons = [
             {
                 "type": "web_url",
-                "url": "https://zero-debt-protocol.lovable.app/",
+                "url": "https://drive.google.com/file/d/1V11Z2g20b0a71QquFVUbgNrUsmogWK5q/view",
+                "title": "📥 Descargar PDF"
+            }
+        ]
+        await client.send_generic_card(target_id, sender_id, title=pdf_title, subtitle=pdf_subtitle, buttons=pdf_buttons)
+        record_dm_sent()
+        await asyncio.sleep(random.uniform(2.0, 3.5))
+
+        # PASO B: Oferta de Deuda Bajo Control™ ($55)
+        deuda_text = (
+            "Pagar mínimos o abonar a ciegas es la trampa perfecta de los bancos: trabaja todo el mes para pagarles intereses sin que la deuda baje jamás.\n\n"
+            "Para salir de ese ahogo necesita un mapa matemático exacto. Con el Protocolo C.E.R.O.™ de **Deuda Bajo Control™** sabe qué deuda liquidar primero y cómo frenar los intereses.\n\n"
+            "Por solo US$55 (pago único de por vida y 7 días de garantía incondicional) erradica sus deudas paso a paso."
+        )
+        await client.send_direct_message(target_id, sender_id, deuda_text)
+        record_dm_sent()
+        await asyncio.sleep(random.uniform(1.5, 2.5))
+
+        # Tarjeta de Compra Deuda
+        checkout_deuda_url = f"https://zero-debt-protocol.lovable.app/?src=ig_bot_deuda_{reel_id or 'direct'}"
+        deuda_card_buttons = [
+            {
+                "type": "web_url",
+                "url": checkout_deuda_url,
                 "title": "⚔️ Adquirir ($55)"
             },
             {
@@ -312,21 +354,70 @@ async def handle_dm_flow(target_id: str, sender_id: str, msg_text: str):
                 "payload": "SUELDO"
             }
         ]
-        await client.send_generic_card(target_id, sender_id, title=title, subtitle=subtitle, buttons=buttons)
+        await client.send_generic_card(
+            target_id, sender_id,
+            title="Deuda Bajo Control™ ($55)",
+            subtitle="Protocolo C.E.R.O.™ para liquidar deudas. Garantía incondicional de 7 días.",
+            buttons=deuda_card_buttons
+        )
+        record_dm_sent()
+        await asyncio.sleep(random.uniform(2.0, 3.5))
+
+        # PASO C: Pregunta de compromiso que renueva la ventana de 24h
+        commitment_text = (
+            "Acabo de entregarle las 7 Reglas Frías arriba 👆.\n\n"
+            "Revíselas hoy mismo y dígame:\n"
+            "¿Cuál de las 7 reglas siente que está rompiendo hoy? (Dígame el número del 1 al 7) 👇"
+        )
+        await client.send_direct_message(target_id, sender_id, commitment_text)
+        record_dm_sent()
         return
 
-    # 4. Caso: Pregunta abierta o caso particular -> Gemini AI Don Klaus
-    ai_reply = await sales_agent.generate_response(sender_id, msg_text)
-    typing_delay = min(len(ai_reply) * 0.035, 6.0) + random.uniform(1.0, 2.0)
+    # 3. CASO: COMPRADOR EXISTENTE (Upsell inteligente)
+    if lead and lead.get("bought_sueldo") and not lead.get("bought_deuda"):
+        upsell_text = (
+            f"Hola @{username}. Ya tiene activo su acceso a Sueldo Bajo Control™.\n\n"
+            "El siguiente paso estratégico para blindar sus finanzas es liquidar sus deudas con el Protocolo C.E.R.O.™ de **Deuda Bajo Control™** ($55 con 7 días de garantía total):\n"
+            "👉 https://zero-debt-protocol.lovable.app/\n\n"
+            "¿Desea revisar el plan de liquidación de deudas?"
+        )
+        await client.send_direct_message(target_id, sender_id, upsell_text)
+        record_dm_sent()
+        return
+
+    # 4. CASO: USUARIO QUE PIDE PRECIO / LINK DIRECTAMENTE
+    if is_direct_buy_intent:
+        if current_segment == "DEUDA":
+            reply = (
+                "El acceso de por vida a **Deuda Bajo Control™** es de US$55 (pago único) con 7 días de garantía incondicional sin preguntas:\n\n"
+                f"👉 https://zero-debt-protocol.lovable.app/?src=ig_bot_deuda_{reel_id or 'direct'}\n\n"
+                "¿Desea empezar a liquidarlas hoy?"
+            )
+        else:
+            reply = (
+                "El acceso de por vida a **Sueldo Bajo Control™** es de solo US$17 (pago único) con 7 días de garantía incondicional:\n\n"
+                f"👉 https://klaus-order-rules.lovable.app/?src=ig_bot_sueldo_{reel_id or 'direct'}\n\n"
+                "¿Blindamos su próximo cobro?"
+            )
+        await client.send_direct_message(target_id, sender_id, reply)
+        record_dm_sent()
+        return
+
+    # 5. CASO: RESPUESTA CONSULTIVA GENERAL IA (Gemini Don Klaus con memoria y manejo de objeciones)
+    ai_reply, escalation = await sales_agent.generate_response(
+        sender_id, msg_text, username=username, segment=current_segment, stage=current_stage
+    )
+    typing_delay = min(len(ai_reply) * 0.03, 5.0) + random.uniform(1.0, 2.0)
     await asyncio.sleep(typing_delay)
-    
-    # Enviar respuesta con botones rápidos (Quick Replies)
+
     quick_replies = [
         {"content_type": "text", "title": "💰 Sueldo ($17)", "payload": "SUELDO"},
-        {"content_type": "text", "title": "⚔️ Deuda ($55)", "payload": "DEUDA"},
-        {"content_type": "text", "title": "📥 Descargar Reglas", "payload": "QUIERO"}
+        {"content_type": "text", "title": "⚔️ Deuda ($55)", "payload": "DEUDA"}
     ]
     await client.send_quick_replies(target_id, sender_id, ai_reply, quick_replies)
+    record_dm_sent()
+
+# ----------------- WEBHOOK EVENT DISPATCHER -----------------
 
 @app.post("/webhook")
 async def receive_webhook(request: Request, background_tasks: BackgroundTasks):
@@ -337,12 +428,11 @@ async def receive_webhook(request: Request, background_tasks: BackgroundTasks):
 
     raw_json_str = json.dumps(body, ensure_ascii=False)
     logger.info(f"Webhook Event Received: {raw_json_str}")
-    
-    # 🛑 HARD STOP TOTAL (48h-72h Cooldown Anti-Shadowban):
+
     settings = get_settings()
     is_paused = config.AUTOMATIONS_PAUSED or settings.get("automations_paused", "false").lower() == "true"
     if is_paused:
-        logger.info("🛑 [HARD STOP ACTIVO] Todas las automatizaciones están 100% DETENIDAS. Ningún mensaje o comentario será enviado.")
+        logger.info("🛑 [AUTOMATIONS PAUSED] Ninguna automatización será ejecutada.")
         return Response(content="AUTOMATIONS_PAUSED", status_code=200)
 
     my_ig_id = settings.get("instagram_account_id", "").strip()
@@ -356,7 +446,7 @@ async def receive_webhook(request: Request, background_tasks: BackgroundTasks):
     for entry in entries:
         entry_id = entry.get("id", "")
 
-        # 1. Comentarios en Feed / Posts / Reels
+        # 1. Comentarios en Publicaciones / Reels
         changes = entry.get("changes", [])
         for change in changes:
             field = change.get("field", "")
@@ -365,7 +455,7 @@ async def receive_webhook(request: Request, background_tasks: BackgroundTasks):
             if field in ["comments", "comment", "feed", "live_comments", "mentions"]:
                 comment_id = value.get("id") or value.get("comment_id")
                 comment_text = value.get("text") or value.get("message", "")
-                
+
                 user_info = value.get("from", {})
                 if isinstance(user_info, dict):
                     username = user_info.get("username") or user_info.get("name", "amigo")
@@ -377,14 +467,10 @@ async def receive_webhook(request: Request, background_tasks: BackgroundTasks):
                 if not comment_id or not comment_text:
                     continue
 
-                # 🛑 ANTI-LOOP #1: Ignorar comentarios de la propia cuenta
                 if normalize_text(username) in ["sistemadonklaus", "donklaus", "don klaus"] or user_id == my_ig_id:
-                    logger.info(f"Ignorando comentario propio de @{username}")
                     continue
 
-                # 🛑 ANTI-LOOP #2: Deduplicación
                 if comment_id in PROCESSED_COMMENTS:
-                    logger.info(f"Comentario {comment_id} ya procesado. Ignorando.")
                     continue
                 PROCESSED_COMMENTS[comment_id] = time.time()
 
@@ -393,13 +479,11 @@ async def receive_webhook(request: Request, background_tasks: BackgroundTasks):
 
                 add_activity_log("COMMENT_RECEIVED", f"Comentario de @{username}: '{comment_text}'", f"Post: {post_id}")
 
-                # Buscar campaña coincidente
                 matched_campaign = None
                 for camp in active_campaigns:
                     post_filter = camp.get("post_id_filter", "").strip()
                     if post_filter and post_filter not in post_id:
                         continue
-
                     if match_keyword(comment_text, camp.get("keywords", ""), camp.get("match_mode", "contains")):
                         matched_campaign = camp
                         break
@@ -412,20 +496,11 @@ async def receive_webhook(request: Request, background_tasks: BackgroundTasks):
                         comment_id,
                         comment_text,
                         username,
-                        matched_campaign
+                        matched_campaign,
+                        post_id
                     )
 
-                    record_lead(
-                        username=username,
-                        user_id=user_id,
-                        campaign_id=matched_campaign["id"],
-                        comment_id=comment_id,
-                        post_id=post_id,
-                        comment_text=comment_text,
-                        status="DM_SENT"
-                    )
-
-        # 2. Mensajes Directos (DMs) entrantes (incluye Respuestas a Historias y Menciones)
+        # 2. Mensajes Directos (DMs) / Postbacks / Respuestas a Historias
         messaging_events = entry.get("messaging", [])
         for event in messaging_events:
             sender_id = event.get("sender", {}).get("id")
@@ -433,7 +508,6 @@ async def receive_webhook(request: Request, background_tasks: BackgroundTasks):
             message = event.get("message", {})
             postback = event.get("postback", {})
 
-            # 1. Obtener texto del mensaje (soporta texto regular, botones rápidos y tarjetas)
             msg_text = ""
             if message:
                 msg_text = message.get("quick_reply", {}).get("payload") or message.get("text", "")
@@ -451,19 +525,19 @@ async def receive_webhook(request: Request, background_tasks: BackgroundTasks):
             if msg_id:
                 PROCESSED_MESSAGES[msg_id] = time.time()
 
-            # 📸 Detección de Respuestas a Historias (Story Reply)
+            # Detección de Respuestas a Historias
             reply_to_story = message.get("reply_to", {}).get("story")
             if reply_to_story:
                 if not msg_text:
-                    msg_text = "[Reaccionó a tu Historia de Instagram]"
+                    msg_text = "[Reaccionó a Historia de Instagram]"
                 else:
-                    msg_text = f"[Respondió a tu Historia]: {msg_text}"
+                    msg_text = f"[Respondió a Historia]: {msg_text}"
 
-            # 📸 Detección de Menciones en Historias (Story Mention)
+            # Detección de Menciones en Historias
             attachments = message.get("attachments", [])
             for att in attachments:
                 if att.get("type") in ["story_mention", "story_share"]:
-                    msg_text = "[Te mencionó en su Historia de Instagram]"
+                    msg_text = "[Mención en Historia de Instagram]"
                     break
 
             if sender_id and msg_text:
@@ -471,6 +545,154 @@ async def receive_webhook(request: Request, background_tasks: BackgroundTasks):
                 background_tasks.add_task(handle_dm_flow, target_id, sender_id, msg_text)
 
     return Response(content="EVENT_RECEIVED", status_code=200)
+
+# ----------------- HOTMART & CHECKOUT TRACKING -----------------
+
+@app.get("/r/checkout/{product_type}/{user_id}")
+@app.get("/r/checkout/{product_type}/{user_id}/{reel_id}")
+async def redirect_checkout(product_type: str, user_id: str, reel_id: str = "direct"):
+    """
+    Ruta de redirección que registra el clic en checkout en el CRM y envía al usuario a Hotmart.
+    """
+    prod_lower = product_type.lower()
+    record_checkout_click(user_id, prod_lower, reel_id)
+    add_activity_log("CHECKOUT_CLICK", f"Lead {user_id} hizo clic en checkout para {prod_lower}", f"Reel: {reel_id}")
+
+    if "deuda" in prod_lower or "55" in prod_lower:
+        target_url = f"https://zero-debt-protocol.lovable.app/?src=ig_bot_deuda_{reel_id}"
+    else:
+        target_url = f"https://klaus-order-rules.lovable.app/?src=ig_bot_sueldo_{reel_id}"
+
+    return RedirectResponse(url=target_url, status_code=302)
+
+class HotmartWebhookPayload(BaseModel):
+    hottok: Optional[str] = None
+    event: Optional[str] = None
+    data: Optional[Dict[str, Any]] = None
+
+@app.post("/api/webhooks/hotmart")
+async def hotmart_webhook(request: Request):
+    """
+    Webhook oficial para recibir compras confirmadas de Hotmart y actualizar el CRM.
+    """
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse({"status": "error", "message": "Invalid JSON"}, status_code=400)
+
+    logger.info(f"Hotmart Webhook Received: {json.dumps(body)}")
+
+    # Extraer datos de compra
+    event_type = body.get("event") or body.get("status") or "PURCHASE_COMPLETE"
+    data = body.get("data") or body
+
+    buyer = data.get("buyer") or {}
+    buyer_email = buyer.get("email") or data.get("email", "")
+    buyer_name = buyer.get("name") or data.get("name", "")
+
+    purchase = data.get("purchase") or {}
+    transaction_id = purchase.get("transaction") or data.get("transaction", f"tx_{int(time.time())}")
+    price_paid = str(purchase.get("price", {}).get("value") or data.get("price", "17"))
+
+    product = data.get("product") or {}
+    product_name = product.get("name") or data.get("prod_name", "Sueldo Bajo Control")
+    product_id = str(product.get("id") or data.get("prod", "1"))
+
+    # Intentar obtener instagram_user_id desde src o custom params
+    src = purchase.get("src") or data.get("src", "")
+    user_id = None
+    if "ig_bot_" in src:
+        parts = src.split("_")
+        if len(parts) >= 4:
+            user_id = parts[-1]
+
+    purchase_id = record_hotmart_purchase(
+        transaction_id=transaction_id,
+        buyer_email=buyer_email,
+        buyer_name=buyer_name,
+        product_id=product_id,
+        product_name=product_name,
+        price_paid=price_paid,
+        user_id=user_id
+    )
+
+    add_activity_log("PURCHASE_VERIFIED", f"¡VENTA CONFIRMADA! {product_name} por ${price_paid} USD (Comprador: {buyer_name} / {buyer_email})", f"Tx: {transaction_id}")
+    return {"status": "success", "purchase_id": purchase_id}
+
+# ----------------- 24H META SMART FOLLOW-UP ENGINE -----------------
+
+async def process_followups_now() -> Dict[str, Any]:
+    """
+    Ejecuta una ronda de seguimiento automático cumpliendo ESTRICTAMENTE con la política de 24h de Meta.
+    """
+    pending_leads = get_pending_window_followups()
+    if not pending_leads:
+        return {"processed": 0, "message": "No hay leads pendientes de seguimiento dentro de la ventana de 24h."}
+
+    client = get_graph_client()
+    settings = get_settings()
+    target_id = settings.get("instagram_account_id", config.INSTAGRAM_ACCOUNT_ID)
+    processed_count = 0
+
+    for lead in pending_leads:
+        if is_rate_limited():
+            logger.warning("[Rate Limiter] Límite de DMs alcanzado durante follow-ups.")
+            break
+
+        user_id = lead["instagram_user_id"]
+        username = lead.get("instagram_username")
+        target_f = lead.get("target_followup", 1)
+        segment = lead.get("segment", "SUELDO")
+
+        # Seleccionar variante A/B para follow-up 3 (50/50)
+        variant_f3 = random.choice(["A", "B"]) if target_f == 3 else "A"
+
+        text, quick_replies = sales_agent.generate_followup_message(
+            followup_num=target_f,
+            username=username,
+            segment=segment,
+            variant_f3=variant_f3
+        )
+        if not text:
+            continue
+
+        try:
+            if quick_replies:
+                await client.send_quick_replies(target_id, user_id, text, quick_replies)
+            else:
+                await client.send_direct_message(target_id, user_id, text)
+
+            record_dm_sent()
+            update_lead_followup_sent(user_id, target_f, variant_f3=variant_f3 if target_f == 3 else None)
+            add_activity_log("FOLLOWUP_SENT", f"Seguimiento #{target_f} (24h Window) enviado a {user_id}", f"User: @{username or user_id}")
+            logger.info(f"[24h Follow-Up Engine] Seguimiento #{target_f} enviado con éxito a {user_id}")
+            processed_count += 1
+        except Exception as e:
+            logger.warning(f"[24h Follow-Up Engine] Error enviando seguimiento a {user_id}: {e}")
+            err_str = str(e).lower()
+            if "outside" in err_str or "policy" in err_str or "block" in err_str:
+                update_lead_stage(user_id, "perdido")
+
+        # Pausa humana aleatoria entre envíos
+        await asyncio.sleep(random.uniform(3.0, 6.0))
+
+    return {"processed": processed_count, "total_pending": len(pending_leads)}
+
+async def followup_worker_loop():
+    """
+    Loop en segundo plano que revisa cada 5 minutos la ventana de 24h de Meta.
+    """
+    logger.info("Iniciando Motor de Seguimiento Inteligente (Meta 24h Window Compliance)...")
+    while True:
+        try:
+            await asyncio.sleep(300)
+            await process_followups_now()
+        except asyncio.CancelledError:
+            logger.info("Motor de Seguimiento Inteligente detenido.")
+            break
+        except Exception as e:
+            logger.exception(f"Error en loop de seguimiento: {e}")
+            await asyncio.sleep(60)
 
 # ----------------- SIMULATOR API -----------------
 
@@ -499,42 +721,41 @@ async def simulate_comment(payload: SimulatorCommentRequest):
             "message": "No se encontró ninguna campaña activa que coincida con las palabras clave ingresadas."
         }
 
-    public_replies = matched_campaign.get("public_replies", [])
-    public_reply_chosen = random.choice(public_replies) if public_replies else "¡Te envié un DM con la información! 🚀"
-    public_reply_chosen = public_reply_chosen.replace("@username", f"@{payload.username}").replace("{{username}}", payload.username)
-
-    dm_messages = matched_campaign.get("dm_messages", [])
-    processed_dms = []
-    for step in dm_messages:
-        text = step.get("text", "").replace("@username", f"@{payload.username}").replace("{{username}}", payload.username)
-        processed_dms.append({
-            "text": text,
-            "delay_seconds": step.get("delay_seconds", 0)
-        })
-
-    add_activity_log("SIMULATION", f"[Simulador] Comentario '@{payload.username}': '{payload.comment_text}' -> Match con '{matched_campaign['name']}'")
+    public_reply = await sales_agent.generate_comment_reply(payload.username, payload.comment_text)
+    variant = random.choice(["A", "B"])
+    dm_text, quick_replies = sales_agent.generate_optin_dm_variant(payload.username, variant)
 
     return {
         "matched": True,
         "campaign_name": matched_campaign["name"],
-        "public_reply": public_reply_chosen,
-        "dm_messages": processed_dms,
-        "enable_ai_agent": bool(matched_campaign.get("enable_ai_agent", 1))
+        "public_reply": public_reply,
+        "dm_variant": variant,
+        "dm_text": dm_text,
+        "quick_replies": quick_replies
     }
 
 class SimulatorChatRequest(BaseModel):
     user_id: str = "sim_user_001"
     username: str = "cliente_interesado"
     message_text: str
+    segment: str = "sin definir"
+    stage: str = "comento"
 
 @app.post("/api/simulator/chat")
 async def simulate_chat(payload: SimulatorChatRequest):
-    reply = await sales_agent.generate_response(payload.user_id, payload.message_text, payload.username)
+    reply, escalation = await sales_agent.generate_response(
+        payload.user_id,
+        payload.message_text,
+        payload.username,
+        segment=payload.segment,
+        stage=payload.stage
+    )
     return {
-        "reply": reply
+        "reply": reply,
+        "escalation": escalation
     }
 
-# ----------------- DASHBOARD REST APIS -----------------
+# ----------------- DASHBOARD & CRM REST APIS -----------------
 
 @app.get("/api/meta/status")
 async def api_meta_status():
@@ -543,7 +764,7 @@ async def api_meta_status():
 
 @app.get("/api/stats")
 async def api_stats():
-    return get_stats()
+    return get_crm_metrics_funnel()
 
 @app.post("/api/stats/reset")
 async def api_reset_stats():
@@ -593,24 +814,27 @@ async def api_delete_product(prod_id: int):
     delete_product(prod_id)
     return {"status": "deleted"}
 
+@app.get("/api/crm/leads")
 @app.get("/api/leads")
-async def api_list_leads(limit: int = 200):
-    return list_leads(limit=limit)
+async def api_list_leads(limit: int = 200, stage: Optional[str] = None, segment: Optional[str] = None):
+    return list_leads(limit=limit, stage=stage, segment=segment)
 
-@app.post("/api/leads/batch")
-async def api_batch_leads(leads_data: List[Dict[str, Any]]):
-    for ld in leads_data:
-        record_lead(
-            username=ld.get("username", "usuario"),
-            user_id=ld.get("user_id", ""),
-            campaign_id=ld.get("campaign_id", 1),
-            comment_id=ld.get("comment_id", ""),
-            post_id=ld.get("post_id", ""),
-            comment_text=ld.get("comment_text", ""),
-            status="DM_SENT"
-        )
-        add_activity_log("DM_SENT", f"DM entregado a @{ld.get('username')}: '{ld.get('comment_text')}'", f"Lead: @{ld.get('username')}")
-    return {"status": "synced", "count": len(leads_data)}
+@app.get("/api/crm/7day-leads")
+async def api_get_7day_leads(limit: int = 50):
+    return get_7day_inactive_leads(limit=limit)
+
+@app.get("/api/metrics/funnel")
+async def api_metrics_funnel():
+    return get_crm_metrics_funnel()
+
+@app.get("/api/followups/pending")
+async def api_get_pending_followups():
+    leads = get_pending_window_followups()
+    return {"count": len(leads), "leads": leads}
+
+@app.post("/api/followups/run")
+async def api_run_followups():
+    return await process_followups_now()
 
 @app.get("/api/logs")
 async def api_list_logs(limit: int = 200):
@@ -626,78 +850,6 @@ async def api_update_settings(updates: Dict[str, str]):
     add_activity_log("SETTINGS_UPDATED", "Configuración del sistema actualizada.")
     return {"status": "updated"}
 
-# ----------------- SMART FOLLOW-UP ENGINE (ALEX HORMOZI CLOSING) -----------------
-
-async def process_followups_now() -> Dict[str, Any]:
-    """
-    Ejecuta una ronda de seguimiento automático para todos los leads elegibles.
-    """
-    pending_leads = get_pending_followup_leads()
-    if not pending_leads:
-        return {"processed": 0, "message": "No hay leads pendientes de seguimiento en este momento."}
-
-    client = get_graph_client()
-    settings = get_settings()
-    target_id = settings.get("instagram_account_id", config.INSTAGRAM_ACCOUNT_ID)
-    processed_count = 0
-
-    for lead in pending_leads:
-        user_id = lead["instagram_user_id"]
-        username = lead.get("instagram_username")
-        target_stage = lead.get("target_stage", 1)
-
-        text, quick_replies = sales_agent.generate_followup_message(target_stage, username)
-        if not text:
-            continue
-
-        try:
-            if quick_replies:
-                await client.send_quick_replies(target_id, user_id, text, quick_replies)
-            else:
-                await client.send_direct_message(target_id, user_id, text)
-
-            next_status = 'PENDING' if target_stage == 1 else 'COMPLETED'
-            update_lead_followup_stage(user_id, target_stage, status=next_status)
-            add_activity_log("FOLLOWUP_SENT", f"Seguimiento #{target_stage} enviado a {user_id}", f"User: @{username or user_id}")
-            logger.info(f"[Follow-Up Engine] Seguimiento #{target_stage} enviado con éxito a {user_id}")
-            processed_count += 1
-        except Exception as e:
-            logger.warning(f"[Follow-Up Engine] Error enviando seguimiento a {user_id}: {e}")
-            err_str = str(e).lower()
-            if "outside" in err_str or "policy" in err_str or "block" in err_str:
-                update_lead_followup_stage(user_id, target_stage, status='PAUSED')
-
-        # Pausa humana aleatoria entre envíos para proteger la cuenta
-        await asyncio.sleep(random.uniform(3.0, 5.5))
-
-    return {"processed": processed_count, "total_pending": len(pending_leads)}
-
-async def followup_worker_loop():
-    """
-    Loop en segundo plano que revisa cada 5 minutos y ejecuta seguimientos automáticos.
-    """
-    logger.info("Iniciando Motor de Seguimiento Inteligente (Smart Follow-Up Engine)...")
-    while True:
-        try:
-            await asyncio.sleep(300)
-            await process_followups_now()
-        except asyncio.CancelledError:
-            logger.info("Motor de Seguimiento Inteligente detenido.")
-            break
-        except Exception as e:
-            logger.exception(f"Error en loop de seguimiento inteligente: {e}")
-            await asyncio.sleep(60)
-
-@app.get("/api/followups/pending")
-async def api_get_pending_followups():
-    leads = get_pending_followup_leads()
-    return {"count": len(leads), "leads": leads}
-
-@app.post("/api/followups/run")
-async def api_run_followups():
-    res = await process_followups_now()
-    return res
-
 # ----------------- SERVE DASHBOARD UI & LEGAL -----------------
 
 @app.get("/privacy", response_class=HTMLResponse)
@@ -705,12 +857,12 @@ async def serve_privacy():
     return HTMLResponse("""
     <!DOCTYPE html>
     <html lang="es">
-    <head><meta charset="UTF-8"><title>Política de Privacidad - InstaFlow</title>
+    <head><meta charset="UTF-8"><title>Política de Privacidad - Sistema Don Klaus</title>
     <style>body{font-family:sans-serif;max-width:800px;margin:40px auto;padding:20px;line-height:1.6;color:#333;}</style>
     </head>
     <body>
     <h1>Política de Privacidad</h1>
-    <p>Esta aplicación procesa datos de comentarios y mensajes de Instagram únicamente para responder consultas de usuarios e interactuar de forma automatizada con nuestros clientes.</p>
+    <p>Esta aplicación procesa datos de comentarios y mensajes de Instagram únicamente para responder consultas de usuarios e interactuar de forma automatizada dentro del marco de políticas de mensajería de Meta (24 horas).</p>
     <p>No compartimos ni vendemos datos personales a terceros. Todos los datos se almacenan de forma segura.</p>
     </body>
     </html>
@@ -726,7 +878,7 @@ async def serve_terms():
     </head>
     <body>
     <h1>Términos de Servicio</h1>
-    <p>Al utilizar este servicio de mensajería automatizada, aceptas recibir respuestas informativas y comerciales sobre nuestros productos y servicios.</p>
+    <p>Al utilizar este servicio de mensajería automatizada de Don Klaus, usted acepta recibir respuestas informativas y consultivas sobre protocolos financieros.</p>
     </body>
     </html>
     """)
@@ -736,8 +888,7 @@ async def serve_index():
     index_file = BASE_DIR / "static" / "index.html"
     if index_file.exists():
         return FileResponse(index_file)
-    return HTMLResponse("<h1>InstaFlow Sales AI Backend Running</h1>")
-
+    return HTMLResponse("<h1>Don Klaus Sales AI Backend Running</h1>")
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host=config.HOST, port=config.PORT, reload=False)
