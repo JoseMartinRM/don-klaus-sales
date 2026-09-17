@@ -203,12 +203,32 @@ Si el usuario solicita expresamente hablar con una persona, asesor, llamada o ti
             "no me respondes", "no me responde", "no respondes", "no responde",
             "responda", "responde lo que te pregunte", "responde lo que le pregunte",
             "eres un robot", "es un robot", "inutil", "inútil", "mentiroso",
-            "deja de evadir", "no evadas", "hable claro", "reportar", "voy a reportar"
+            "deja de evadir", "no evadas", "hable claro", "reportar", "voy a reportar",
+            "por que no respondes", "por qué no respondes", "por que no responde", "por qué no responde",
+            "no contesta", "no contestas", "no me contesta", "no me contestas"
         ]
         if any(w in msg for w in frustration_words):
             return (
                 "Le ofrezco una sincera disculpa si la respuesta anterior no fue precisa. Mi compromiso con usted es de absoluta transparencia y respeto.\n\n"
                 "Soy Don Klaus, exbanquero de origen e inmigración alemana. Por favor indíqueme con exactitud qué duda puntual desea resolver, o si lo prefiere, he notificado a mi equipo para que un asesor humano le responda directamente en este chat."
+            )
+        return None
+
+    def _check_troll_or_insult_query(self, message: str) -> Optional[str]:
+        """
+        Detecta insultos o provocaciones agresivas y desescala con frialdad y educación profesional
+        sin caer en discusiones ni dar pie a reportes.
+        """
+        msg = message.lower().strip()
+        insult_triggers = [
+            "pelotudo", "boludo", "idiota", "estupido", "estúpido", "estafador", "estafadores",
+            "vendehumo", "payaso", "farsante", "mentiroso", "ladron", "ladrón", "mierda",
+            "carajo", "imbecil", "imbécil", "chanta", "falso", "estafas", "tonteria", "tonterias", "tontería", "tonterías"
+        ]
+        if any(w in msg for w in insult_triggers):
+            return (
+                "En Sistema Don Klaus mantenemos un trato estrictamente formal, respetuoso y profesional.\n\n"
+                "Si en algún momento desea orientación financiera basada en números y métodos matemáticos comprobados, con gusto le asistiré. Si este enfoque no se ajusta a lo que busca, le deseo sinceramente el mayor de los éxitos en sus proyectos."
             )
         return None
 
@@ -320,7 +340,15 @@ Si el usuario solicita expresamente hablar con una persona, asesor, llamada o ti
 
         save_conversation_message(user_id, "user", user_message)
 
-        # 1. Chequeo de queja / frustración del usuario (Anti-Reporte)
+        # 1. Chequeo de insultos / agresiones de trolls
+        troll_reply = self._check_troll_or_insult_query(user_message)
+        if troll_reply:
+            flag_human_escalation(user_id, "Usuario utilizó lenguaje agresivo o insultos")
+            add_activity_log("HUMAN_ESCALATION", f"Lead {user_id} (@{username}) usó lenguaje agresivo: desescalado con cortesía", f"User: @{username or user_id}")
+            save_conversation_message(user_id, "assistant", troll_reply)
+            return troll_reply, "Usuario utilizó lenguaje agresivo o insultos"
+
+        # 2. Chequeo de queja / frustración del usuario (Anti-Reporte)
         frustration_reply = self._check_frustration_query(user_message)
         if frustration_reply:
             flag_human_escalation(user_id, "Usuario expresó molestia/frustración con el bot")
@@ -328,7 +356,7 @@ Si el usuario solicita expresamente hablar con una persona, asesor, llamada o ti
             save_conversation_message(user_id, "assistant", frustration_reply)
             return frustration_reply, "Usuario expresó molestia/frustración con el bot"
 
-        # 2. Chequeo de escalación humana expresa
+        # 3. Chequeo de escalación humana expresa
         escalation_reason = self.detect_human_escalation(user_message)
         if escalation_reason:
             flag_human_escalation(user_id, escalation_reason)
@@ -487,12 +515,17 @@ Si el usuario solicita expresamente hablar con una persona, asesor, llamada o ti
         return None
 
     def _generate_rule_based_fallback(self, message: str, segment: str = "sin definir") -> str:
-        # 1. Frustración / Queja
+        # 1. Trolls / Insultos
+        troll = self._check_troll_or_insult_query(message)
+        if troll:
+            return troll
+
+        # 2. Frustración / Queja
         frust = self._check_frustration_query(message)
         if frust:
             return frust
 
-        # 2. Origen e historia de Don Klaus
+        # 3. Origen e historia de Don Klaus
         origin = self._check_origin_query(message)
         if origin:
             return origin
