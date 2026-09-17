@@ -43,6 +43,10 @@ TU IDENTIDAD Y POSTURA (ALEX HORMOZI & NEPQ CONSULTATIVE CLOSER):
 - Cada mensaje DEBE terminar con una pregunta cerrada de avance o una llamada a la acción clara.
 - CERO promesas falsas o urgencia ficticia. La urgencia es el costo de inacción del usuario (seguir perdiendo dinero cada mes).
 
+HISTORIA Y ORIGEN DE DON KLAUS:
+- Don Klaus es un mentor financiero y exbanquero de origen e inmigración alemana, quien tras más de dos décadas en la alta banca forjó su patrimonio millonario descifrando los algoritmos y matemáticas del dinero y los intereses bancarios.
+- Si el usuario pregunta de dónde es Don Klaus, quién es, cuál es su historia, nacionalidad o si es una persona real: responda con orgullo, sobriedad y formalidad explicando su origen e inmigración alemana y su trayectoria en la alta banca, y luego conecte con cómo esos mismos principios matemáticos pueden ordenar las finanzas o deudas del usuario.
+
 SEGMENTO ACTUAL DEL LEAD: {segment.upper()}
 ETAPA ACTUAL DEL EMBUDO: {stage.upper()}
 
@@ -53,18 +57,27 @@ CATÁLOGO EXACTO DE SOLUCIONES:
 
 2. SUELDO BAJO CONTROL™ (US$17 · Pago único de por vida · Garantía 7 días):
    - Solución: Protocolo Día de Pago™ de 7 días (MIRA ➔ SEPARA ➔ DECIDE ➔ REVISA). Videos cortos de 5 min y plantillas listas.
-   - Enlace: https://klaus-order-rules.lovable.app/
+   - Enlace Oficial: https://klaus-order-rules.lovable.app/
 
 3. DEUDA BAJO CONTROL™ (US$55 · Pago único de por vida · Garantía 7 días):
    - Solución: Protocolo C.E.R.O.™ para liquidar deudas paso a paso sin regalarle intereses a los bancos.
-   - Enlace: https://zero-debt-protocol.lovable.app/
+   - Enlace Oficial: https://zero-debt-protocol.lovable.app/
+
+PROCESO DE PAGO Y CONFIANZA EN HOTMART:
+- Si el usuario tiene dudas sobre cómo pagar, qué es Hotmart, métodos de pago o seguridad:
+  1. Explique que Hotmart es la plataforma tecnológica educativa más grande y segura de Iberoamérica, con encriptación de nivel bancario y presencia en más de 180 países.
+  2. Los enlaces oficiales (klaus-order-rules.lovable.app o zero-debt-protocol.lovable.app) son las páginas web oficiales de presentación que conectan directamente al checkout certificado de Hotmart.
+  3. Al ingresar al checkout, la plataforma detecta automáticamente el país del usuario y convierte el precio a su moneda local.
+  4. Métodos aceptados: Tarjetas de crédito/débito, PayPal y pagos locales en efectivo según el país (OXXO en México, PSE / Nequi / Efecty en Colombia, PagoEfectivo en Perú, Pix en Brasil, etc.).
+  5. Entrega inmediata: los accesos llegan a su correo electrónico al segundo de aprobarse el pago.
+  6. Garantía total: 7 días de garantía incondicional de devolución del 100% de su dinero.
 
 MANEJO DE OBJECIONES NEPQ (ALEX HORMOZI):
 • "No tengo dinero / no me alcanza": "Si en este momento no dispone de $17 para blindar sus finanzas, el desorden le está costando diez veces más cada mes en fugas silenciosas. Dispone de 7 días de garantía incondicional: pruébelo sin arriesgar nada. ¿Blindamos su próximo cobro?"
 • "No tengo tiempo": "Está diseñado exactamente para personas ocupadas: son videos directos de 5 minutos al día y plantillas listas para usar. Cero teoría innecesaria ni hojas de Excel complejas."
-• "¿Tiene garantía / es seguro?": "Dispone de 7 días de garantía incondicional sin preguntas. Si en una semana no tiene claridad matemática absoluta sobre sus números, se le devuelve el 100% de inmediato. El riesgo es totalmente mío."
+• "¿Tiene garantía / es seguro? / ¿Qué es Hotmart?": "El pago se procesa mediante Hotmart con seguridad y encriptación bancaria en +180 países. Dispone de 7 días de garantía incondicional sin preguntas: si no le da orden absoluto, se le devuelve el 100%. El riesgo es totalmente mío."
 • "Lo voy a pensar": "Pensar no frena las fugas de dinero ni reduce los intereses bancarios. Si deja pasar este mes, el próximo cobro estará en la misma incertidumbre. ¿Prefiere tomar el control hoy o esperar otro mes?"
-• "¿Sirve para mi país / moneda?": "Las matemáticas y los intereses bancarios son universales. El protocolo funciona en pesos, dólares o euros porque se basa en porcentajes y prioridades numéricas, sin importar su país de residencia."
+• "¿Sirve para mi país / moneda?": "Hotmart convierte automáticamente el valor a su moneda local y acepta métodos locales (PSE, Nequi, OXXO, tarjetas, PayPal). Las matemáticas del dinero son universales."
 • "Ya probé otros cursos y no me sirvieron": "Los cursos tradicionales saturan con teoría que nadie aplica. Esto es un protocolo de ejecución diaria de 7 días enfocado exclusivamente en ordenar sus números de inmediato."
 
 CONSEJO POR REGLA (CUANDO EL USUARIO MENCIONA DEL 1 AL 7):
@@ -75,6 +88,13 @@ CONSEJO POR REGLA (CUANDO EL USUARIO MENCIONA DEL 1 AL 7):
 • Regla 5 (Auditoría semanal de números): "No mirar sus números no elimina el problema, lo empeora. 5 minutos a la semana le ahorran hasta $300 en fugas silenciosas. Eso es lo que aplicamos en Sueldo Bajo Control™ ($17)."
 • Regla 6 (Estrategia de amortización acelerada): "Abonar a todas las deudas por igual diluye su dinero. Con Deuda Bajo Control™ ($55) concentra toda su fuerza en la deuda matemáticamente correcta."
 • Regla 7 (Invertir solo lo que sobre tras el protocolo): "Querer invertir sin tener el sueldo ordenado es poner el techo antes de los cimientos. Primero blindamos su cobro con Sueldo Bajo Control™ ($17)."
+
+MANEJO ANTI-FRUSTRACIÓN Y PREVENCIÓN DE REPORTES:
+- Si el usuario muestra molestia, enojo, dice que es un robot, que no le responde lo que pregunta, o amenaza con queja/reporte:
+  1. NUNCA discuta ni intente venderle en ese momento.
+  2. Mantenga extrema altura, educación y respeto formal de "USTED".
+  3. Discúlpese por el malentendido y responda con total precisión y transparencia directa a lo que preguntó.
+  4. Ofrezca que un asesor de su equipo revise su caso en este mismo chat e incluya la etiqueta: [ESCALATE_HUMAN: Solicitud por disconformidad del usuario].
 
 ESCALACIÓN HUMANA:
 Si el usuario solicita expresamente hablar con una persona, asesor, llamada o tiene un reclamo técnico/legal complejo, responde educadamente que un asesor humano lo contactará e incluye la etiqueta: [ESCALATE_HUMAN: motivo]."""
@@ -114,7 +134,7 @@ Si el usuario solicita expresamente hablar con una persona, asesor, llamada o ti
 
     def detect_human_escalation(self, message: str) -> Optional[str]:
         """
-        Detecta si el mensaje del usuario requiere escalación a un operador humano.
+        Detecta si el mensaje del usuario requiere escalación a un operador humano o si hay queja/frustración.
         """
         msg = message.lower()
         triggers = [
@@ -123,13 +143,27 @@ Si el usuario solicita expresamente hablar con una persona, asesor, llamada o ti
             ("asesor", "Usuario solicita asesor"),
             ("llamada", "Usuario pide llamada"),
             ("telefono", "Usuario pide teléfono"),
+            ("teléfono", "Usuario pide teléfono"),
             ("número", "Usuario pide número telefónico"),
+            ("numero", "Usuario pide número telefónico"),
             ("hablar con alguien", "Usuario desea hablar con alguien"),
+            ("hablar con una persona", "Usuario desea hablar con una persona"),
             ("estafa", "Alerta de queja / duda de seguridad"),
+            ("estafador", "Alerta de queja por estafa"),
             ("fraude", "Alerta de fraude"),
             ("abogado", "Asunto legal"),
             ("devolucion", "Solicitud de reembolso"),
-            ("reembolso", "Solicitud de reembolso")
+            ("devolución", "Solicitud de reembolso"),
+            ("reembolso", "Solicitud de reembolso"),
+            ("reportar", "Usuario amenaza con reporte"),
+            ("reporte", "Usuario menciona reporte"),
+            ("queja", "Usuario presenta queja"),
+            ("inutil", "Usuario frustrado con respuesta"),
+            ("inútil", "Usuario frustrado con respuesta"),
+            ("no respondes", "Usuario molesto por falta de respuesta directa"),
+            ("no responde", "Usuario molesto por falta de respuesta directa"),
+            ("no me respondes", "Usuario molesto por falta de respuesta directa"),
+            ("no me responde", "Usuario molesto por falta de respuesta directa"),
         ]
         for trig, reason in triggers:
             if trig in msg:
@@ -141,6 +175,10 @@ Si el usuario solicita expresamente hablar con una persona, asesor, llamada o ti
         Detecta la categoría de objeción presente en el mensaje del lead.
         """
         msg = message.lower()
+        if any(w in msg for w in ["de donde", "de dónde", "quien es klaus", "quién es klaus", "su historia", "tu historia", "quien eres", "quién eres", "nacionalidad", "es real", "aleman", "alemán"]):
+            return "origen_identidad"
+        if any(w in msg for w in ["hotmart", "como pago", "cómo pago", "como pagar", "metodo de pago", "métodos de pago", "nequi", "pse", "oxxo", "paypal"]):
+            return "pago_hotmart"
         if any(w in msg for w in ["no tengo dinero", "no me alcanza", "caro", "costoso", "sin plata", "no tengo fondos"]):
             return "precio"
         if any(w in msg for w in ["no tengo tiempo", "ocupado", "sin tiempo", "trabajo mucho", "no me da el dia"]):
@@ -153,6 +191,76 @@ Si el usuario solicita expresamente hablar con una persona, asesor, llamada o ti
             return "pais_moneda"
         if any(w in msg for w in ["otros cursos", "ya probe", "no me sirvio", "vendehumo", "otra academia"]):
             return "cursos_previos"
+        return None
+
+    def _check_frustration_query(self, message: str) -> Optional[str]:
+        """
+        Detecta si el usuario está enojado o frustrado porque siente que no le respondieron su pregunta.
+        Desescala de inmediato con respeto formal y ofrece atención humana.
+        """
+        msg = message.lower().strip()
+        frustration_words = [
+            "no me respondes", "no me responde", "no respondes", "no responde",
+            "responda", "responde lo que te pregunte", "responde lo que le pregunte",
+            "eres un robot", "es un robot", "inutil", "inútil", "mentiroso",
+            "deja de evadir", "no evadas", "hable claro", "reportar", "voy a reportar"
+        ]
+        if any(w in msg for w in frustration_words):
+            return (
+                "Le ofrezco una sincera disculpa si la respuesta anterior no fue precisa. Mi compromiso con usted es de absoluta transparencia y respeto.\n\n"
+                "Soy Don Klaus, exbanquero de origen e inmigración alemana. Por favor indíqueme con exactitud qué duda puntual desea resolver, o si lo prefiere, he notificado a mi equipo para que un asesor humano le responda directamente en este chat."
+            )
+        return None
+
+    def _check_origin_query(self, message: str) -> Optional[str]:
+        """
+        Detecta preguntas sobre de dónde es Don Klaus, quién es, su historia o si es real.
+        """
+        msg = message.lower().strip()
+        triggers = [
+            "de donde es", "de dónde es", "de donde eres", "de dónde eres", "de donde son", "de dónde son",
+            "quien es klaus", "quién es klaus", "quien es don klaus", "quién es don klaus",
+            "quien eres", "quién eres", "quien es usted", "quién es usted", "quien está detras",
+            "su historia", "tu historia", "cual es su historia", "cuál es su historia",
+            "nacionalidad", "es real", "persona real", "de que pais", "de qué país", "de que país",
+            "es aleman", "es alemán", "eres aleman", "eres alemán", "quien habla", "quién habla"
+        ]
+        if any(t in msg for t in triggers):
+            return (
+                "Soy Don Klaus, mentor financiero y exbanquero de origen e inmigración alemana. Durante más de dos décadas trabajé en la alta banca descifrando los algoritmos y matemáticas del dinero que las instituciones financieras no revelan.\n\n"
+                "Hoy comparto estos protocolos fríos para que usted tome el control absoluto de sus números y liquide deudas de por vida.\n\n"
+                "En su caso particular: ¿su mayor desafío hoy es ordenar su Sueldo o liquidar Deudas?"
+            )
+        return None
+
+    def _check_hotmart_payment_query(self, message: str, segment: str = "sin definir") -> Optional[str]:
+        """
+        Detecta preguntas sobre cómo pagar, qué es Hotmart, métodos de pago locales y seguridad.
+        """
+        msg = message.lower().strip()
+        triggers = [
+            "como pago", "cómo pago", "como pagar", "cómo pagar", "como se paga", "cómo se paga",
+            "hotmart", "metodo de pago", "métodos de pago", "metodos de pago", "método de pago",
+            "formas de pago", "forma de pago", "como comprar", "cómo comprar", "como compro", "cómo compro",
+            "donde pago", "dónde pago", "donde comprar", "dónde comprar", "es seguro pagar", "que es hotmart", "qué es hotmart",
+            "nequi", "pse", "oxxo", "efecty", "pagoefectivo", "paypal", "transferencia", "en efectivo"
+        ]
+        if any(t in msg for t in triggers):
+            if segment == "DEUDA":
+                url = "https://zero-debt-protocol.lovable.app/"
+                prod = "Deuda Bajo Control™ ($55)"
+            else:
+                url = "https://klaus-order-rules.lovable.app/"
+                prod = "Sueldo Bajo Control™ ($17)"
+
+            return (
+                f"El pago de {prod} se procesa de forma 100% segura mediante **Hotmart**, la plataforma educativa líder mundial en +180 países con encriptación de nivel bancario:\n\n"
+                "1. Al ingresar a la web oficial, pulsa el botón de acceso y Hotmart convertirá automáticamente el valor a su moneda local.\n"
+                "2. Puede pagar con tarjeta de crédito/débito, PayPal o en efectivo según su país (PSE/Nequi en Colombia, OXXO en México, PagoEfectivo en Perú, etc.).\n"
+                "3. Recibe los accesos al instante en su correo electrónico con 7 días de garantía incondicional del 100%.\n\n"
+                f"👉 {url}\n\n"
+                "¿Tiene alguna duda puntual con el método de pago de su país?"
+            )
         return None
 
     async def generate_comment_reply(self, username: str, comment_text: str) -> str:
@@ -212,7 +320,15 @@ Si el usuario solicita expresamente hablar con una persona, asesor, llamada o ti
 
         save_conversation_message(user_id, "user", user_message)
 
-        # 1. Chequeo de escalación humana
+        # 1. Chequeo de queja / frustración del usuario (Anti-Reporte)
+        frustration_reply = self._check_frustration_query(user_message)
+        if frustration_reply:
+            flag_human_escalation(user_id, "Usuario expresó molestia/frustración con el bot")
+            add_activity_log("HUMAN_ESCALATION", f"Lead {user_id} (@{username}) reportó disconformidad: atención humana requerida", f"User: @{username or user_id}")
+            save_conversation_message(user_id, "assistant", frustration_reply)
+            return frustration_reply, "Usuario expresó molestia/frustración con el bot"
+
+        # 2. Chequeo de escalación humana expresa
         escalation_reason = self.detect_human_escalation(user_message)
         if escalation_reason:
             flag_human_escalation(user_id, escalation_reason)
@@ -221,7 +337,21 @@ Si el usuario solicita expresamente hablar con una persona, asesor, llamada o ti
             save_conversation_message(user_id, "assistant", reply)
             return reply, escalation_reason
 
-        # 2. Chequeo de regla específica (1 al 7)
+        # 3. Chequeo de origen e historia de Don Klaus
+        origin_reply = self._check_origin_query(user_message)
+        if origin_reply:
+            save_conversation_message(user_id, "assistant", origin_reply)
+            add_activity_log("AI_REPLY_SENT", f"Don Klaus explicó su origen e historia a {user_id}", f"User: @{username or user_id}")
+            return origin_reply, None
+
+        # 4. Chequeo de dudas sobre Hotmart y proceso de pago
+        payment_reply = self._check_hotmart_payment_query(user_message, segment)
+        if payment_reply:
+            save_conversation_message(user_id, "assistant", payment_reply)
+            add_activity_log("AI_REPLY_SENT", f"Don Klaus explicó el pago en Hotmart a {user_id}", f"User: @{username or user_id}")
+            return payment_reply, None
+
+        # 5. Chequeo de regla específica (1 al 7)
         rule_reply = self._check_rule_advice(user_message)
         if rule_reply:
             save_conversation_message(user_id, "assistant", rule_reply)
@@ -357,6 +487,26 @@ Si el usuario solicita expresamente hablar con una persona, asesor, llamada o ti
         return None
 
     def _generate_rule_based_fallback(self, message: str, segment: str = "sin definir") -> str:
+        # 1. Frustración / Queja
+        frust = self._check_frustration_query(message)
+        if frust:
+            return frust
+
+        # 2. Origen e historia de Don Klaus
+        origin = self._check_origin_query(message)
+        if origin:
+            return origin
+
+        # 3. Pago y Hotmart
+        pay = self._check_hotmart_payment_query(message, segment)
+        if pay:
+            return pay
+
+        # 4. Reglas 1 al 7
+        rule = self._check_rule_advice(message)
+        if rule:
+            return rule
+
         msg = message.lower().strip()
 
         # Objeción de precio
