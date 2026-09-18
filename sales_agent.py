@@ -47,6 +47,14 @@ HISTORIA Y ORIGEN DE DON KLAUS:
 - Don Klaus es un mentor financiero y exbanquero de origen e inmigración alemana, quien tras más de dos décadas en la alta banca forjó su patrimonio millonario descifrando los algoritmos y matemáticas del dinero y los intereses bancarios.
 - Si el usuario pregunta de dónde es Don Klaus, quién es, cuál es su historia, nacionalidad o si es una persona real: responda con orgullo, sobriedad y formalidad explicando su origen e inmigración alemana y su trayectoria en la alta banca, y luego conecte con cómo esos mismos principios matemáticos pueden ordenar las finanzas o deudas del usuario.
 
+DIFERENCIACIÓN DE MENTORÍA Y ASESORÍA PERSONALIZADA:
+- Don Klaus NO ofrece asesorías ni mentorías individuales 1 a 1 por hora de miles de dólares, porque la mayoría saturan con teoría abstracta que nadie aplica.
+- Don Klaus sintetizó sus más de 20 años de experiencia en la alta banca en dos PROTOCOLOS DIGITALES DE EJECUCIÓN PRÁCTICA Y AUTO-APLICACIÓN:
+  1. Sueldo Bajo Control™ ($17 USD · Pago único de por vida · 7 días de garantía total): https://klaus-order-rules.lovable.app/
+  2. Deuda Bajo Control™ ($55 USD · Pago único de por vida · 7 días de garantía total): https://zero-debt-protocol.lovable.app/
+- Si el usuario pregunta: "¿Cuánto cuesta la mentoría?", "¿Cómo es la asesoría?", "¿Ofrece coaching?", "Quiero que me asesore":
+  Responda explicando con total claridad y autoridad que no necesita pagar miles de dólares en consultorías teóricas, sino aplicar los protocolos digitales directos de 5 minutos al día, presente ambos programas con sus precios y enlaces, y pregunte cuál es su mayor dolor hoy (sueldo o deudas).
+
 SEGMENTO ACTUAL DEL LEAD: {segment.upper()}
 ETAPA ACTUAL DEL EMBUDO: {stage.upper()}
 
@@ -134,36 +142,38 @@ Si el usuario solicita expresamente hablar con una persona, asesor, llamada o ti
 
     def detect_human_escalation(self, message: str) -> Optional[str]:
         """
-        Detecta si el mensaje del usuario requiere escalación a un operador humano o si hay queja/frustración.
+        Detecta si el mensaje del usuario requiere escalación a un operador humano de forma EXPRESA.
+        NUNCA debe dispararse por preguntas de precio, mentoría, asesoría o dudas de cursos.
         """
         msg = message.lower()
         triggers = [
-            ("humano", "Usuario solicita atención humana"),
+            ("hablar con un humano", "Usuario solicita atención humana"),
+            ("hablar con una persona", "Usuario solicita hablar con una persona real"),
+            ("quiero un humano", "Usuario solicita atención humana"),
             ("persona real", "Usuario solicita persona real"),
-            ("asesor", "Usuario solicita asesor"),
-            ("llamada", "Usuario pide llamada"),
-            ("telefono", "Usuario pide teléfono"),
-            ("teléfono", "Usuario pide teléfono"),
-            ("número", "Usuario pide número telefónico"),
-            ("numero", "Usuario pide número telefónico"),
-            ("hablar con alguien", "Usuario desea hablar con alguien"),
-            ("hablar con una persona", "Usuario desea hablar con una persona"),
-            ("estafa", "Alerta de queja / duda de seguridad"),
-            ("estafador", "Alerta de queja por estafa"),
-            ("fraude", "Alerta de fraude"),
+            ("humano real", "Usuario solicita humano real"),
+            ("asesor humano", "Usuario solicita asesor humano"),
+            ("hablar con un asesor", "Usuario pide hablar con un asesor"),
+            ("pásame con un asesor", "Usuario pide hablar con un asesor"),
+            ("pasame con un asesor", "Usuario pide hablar con un asesor"),
+            ("atencion al cliente", "Usuario pide atención al cliente"),
+            ("atención al cliente", "Usuario pide atención al cliente"),
+            ("quiero una llamada", "Usuario pide llamada telefónica"),
+            ("hacer una llamada", "Usuario pide llamada telefónica"),
+            ("llámame por favor", "Usuario pide llamada telefónica"),
+            ("llamame por favor", "Usuario pide llamada telefónica"),
+            ("dame tu teléfono", "Usuario pide teléfono"),
+            ("dame tu telefono", "Usuario pide teléfono"),
+            ("número de teléfono", "Usuario pide número telefónico"),
+            ("numero de telefono", "Usuario pide número telefónico"),
+            ("fraude legal", "Alerta de fraude legal"),
             ("abogado", "Asunto legal"),
-            ("devolucion", "Solicitud de reembolso"),
-            ("devolución", "Solicitud de reembolso"),
-            ("reembolso", "Solicitud de reembolso"),
-            ("reportar", "Usuario amenaza con reporte"),
-            ("reporte", "Usuario menciona reporte"),
-            ("queja", "Usuario presenta queja"),
-            ("inutil", "Usuario frustrado con respuesta"),
-            ("inútil", "Usuario frustrado con respuesta"),
-            ("no respondes", "Usuario molesto por falta de respuesta directa"),
-            ("no responde", "Usuario molesto por falta de respuesta directa"),
-            ("no me respondes", "Usuario molesto por falta de respuesta directa"),
-            ("no me responde", "Usuario molesto por falta de respuesta directa"),
+            ("devolucion de mi dinero", "Solicitud de reembolso"),
+            ("devolución de mi dinero", "Solicitud de reembolso"),
+            ("reembolso de mi dinero", "Solicitud de reembolso"),
+            ("quiero mi reembolso", "Solicitud de reembolso"),
+            ("voy a reportar", "Usuario amenaza con reporte"),
+            ("voy a denunciar", "Usuario amenaza con denuncia"),
         ]
         for trig, reason in triggers:
             if trig in msg:
@@ -229,6 +239,33 @@ Si el usuario solicita expresamente hablar con una persona, asesor, llamada o ti
             return (
                 "En Sistema Don Klaus mantenemos un trato estrictamente formal, respetuoso y profesional.\n\n"
                 "Si en algún momento desea orientación financiera basada en números y métodos matemáticos comprobados, con gusto le asistiré. Si este enfoque no se ajusta a lo que busca, le deseo sinceramente el mayor de los éxitos en sus proyectos."
+            )
+        return None
+
+    def _check_mentoria_query(self, message: str) -> Optional[str]:
+        """
+        Detecta preguntas sobre mentorías, asesorías personalizadas, coaching o cuánto cuesta el servicio.
+        Explica que Don Klaus no vende mentorías costosas de miles de dólares, sino protocolos digitales prácticos.
+        """
+        msg = message.lower().strip()
+        mentoria_triggers = [
+            "mentoria", "mentoría", "asesoria", "asesoría", "asesorarme", "asesoramiento",
+            "coach", "coaching", "consulta personalizada", "cuanto cuesta la mentoria", "cuánto cuesta la mentoría",
+            "cuanto cuesta la asesoria", "cuánto cuesta la asesoría", "cuanto vale la mentoria", "cuánto vale la mentoría",
+            "cuanto vale la asesoria", "cuánto vale la asesoría", "como es la mentoria", "cómo es la mentoría",
+            "como es la asesoria", "cómo es la asesoría", "como funciona el programa", "cómo funciona el programa",
+            "en que consiste el programa", "en qué consiste el programa", "quiero asesoria", "quiero asesoría",
+            "quiero mentoria", "quiero mentoría"
+        ]
+        if any(t in msg for t in mentoria_triggers):
+            return (
+                "No ofrezco mentorías individuales por hora de miles de dólares porque saturan con teoría abstracta que nadie aplica.\n\n"
+                "He sintetizado mis más de 20 años en la alta banca en dos **Protocolos Digitales de Ejecución Práctica** (videos directos de 5 minutos al día y plantillas listas, sin Excels complejos):\n\n"
+                "1. **Sueldo Bajo Control™ (US$17 · pago único de por vida)**: Para blindar su sueldo el día de pago y frenar fugas.\n"
+                "👉 https://klaus-order-rules.lovable.app/\n\n"
+                "2. **Deuda Bajo Control™ (US$55 · pago único de por vida)**: Protocolo C.E.R.O.™ para liquidar deudas paso a paso y congelar intereses.\n"
+                "👉 https://zero-debt-protocol.lovable.app/\n\n"
+                "Ambos incluyen 7 días de garantía incondicional del 100%. ¿Cuál se ajusta mejor a su prioridad hoy: ordenar su Sueldo o liquidar Deudas?"
             )
         return None
 
@@ -356,7 +393,14 @@ Si el usuario solicita expresamente hablar con una persona, asesor, llamada o ti
             save_conversation_message(user_id, "assistant", frustration_reply)
             return frustration_reply, "Usuario expresó molestia/frustración con el bot"
 
-        # 3. Chequeo de escalación humana expresa
+        # 3. Chequeo de dudas sobre Mentoría / Asesoría / Precios de Consultoría
+        mentoria_reply = self._check_mentoria_query(user_message)
+        if mentoria_reply:
+            save_conversation_message(user_id, "assistant", mentoria_reply)
+            add_activity_log("AI_REPLY_SENT", f"Don Klaus explicó protocolos digitales vs mentoría a {user_id}", f"User: @{username or user_id}")
+            return mentoria_reply, None
+
+        # 4. Chequeo de escalación humana expresa
         escalation_reason = self.detect_human_escalation(user_message)
         if escalation_reason:
             flag_human_escalation(user_id, escalation_reason)
@@ -365,14 +409,14 @@ Si el usuario solicita expresamente hablar con una persona, asesor, llamada o ti
             save_conversation_message(user_id, "assistant", reply)
             return reply, escalation_reason
 
-        # 3. Chequeo de origen e historia de Don Klaus
+        # 5. Chequeo de origen e historia de Don Klaus
         origin_reply = self._check_origin_query(user_message)
         if origin_reply:
             save_conversation_message(user_id, "assistant", origin_reply)
             add_activity_log("AI_REPLY_SENT", f"Don Klaus explicó su origen e historia a {user_id}", f"User: @{username or user_id}")
             return origin_reply, None
 
-        # 4. Chequeo de dudas sobre Hotmart y proceso de pago
+        # 6. Chequeo de dudas sobre Hotmart y proceso de pago
         payment_reply = self._check_hotmart_payment_query(user_message, segment)
         if payment_reply:
             save_conversation_message(user_id, "assistant", payment_reply)
@@ -525,17 +569,22 @@ Si el usuario solicita expresamente hablar con una persona, asesor, llamada o ti
         if frust:
             return frust
 
-        # 3. Origen e historia de Don Klaus
+        # 3. Mentoría / Asesoría / Consultoría
+        mentoria = self._check_mentoria_query(message)
+        if mentoria:
+            return mentoria
+
+        # 4. Origen e historia de Don Klaus
         origin = self._check_origin_query(message)
         if origin:
             return origin
 
-        # 3. Pago y Hotmart
+        # 5. Pago y Hotmart
         pay = self._check_hotmart_payment_query(message, segment)
         if pay:
             return pay
 
-        # 4. Reglas 1 al 7
+        # 6. Reglas 1 al 7
         rule = self._check_rule_advice(message)
         if rule:
             return rule
